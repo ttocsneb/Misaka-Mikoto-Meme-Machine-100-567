@@ -1,18 +1,22 @@
 import os
 from os.path import dirname
+import logging
 
 from ruamel import yaml
 
 __config_file = os.path.join(dirname(dirname(__file__)), 'config.yaml')
-VERSION = 1
+VERSION = 2
 
 _conf = dict()
+
+_logger = logging.getLogger(__name__)
+
 
 def save():
     """
     Save the config file
     """
-    print("Saving config file..")
+    _logger.info("Saving config file..")
 
     res = yaml.round_trip_dump(_conf, indent=2, block_seq_indent=1)
 
@@ -24,7 +28,7 @@ def load():
     """
     Load the config file.
     """
-    print("Loading Configuration file..")
+    _logger.info("Loading Configuration file..")
 
     def load_defaults():
         global _conf
@@ -60,13 +64,13 @@ def load():
         from collections import Mapping
         changed = False
         for key, val in new.items():
-            # print("{} ({})".format(key, type(old.get(key))))
+            # _logger.info("{} ({})".format(key, type(old.get(key))))
             if not key in old:
-                print("{}Adding new value {}".format('  ' * layer, key))
+                _logger.debug("{}Adding new value {}".format('  ' * layer, key))
                 changed = True
                 old[key] = val
             elif issubclass(type(old[key]), Mapping) and issubclass(type(val), Mapping):
-                print("{}Merging dict {}".format('  ' * layer, key))
+                _logger.debug("{}Merging dict {}".format('  ' * layer, key))
                 changed = changed or mergeDict(old[key], val, layer + 1)
 
         return changed
@@ -81,10 +85,16 @@ def get_defaults():
 
     defaults['config'] = dict(
         voice=dict(
-            opus='opus'
+            opus='opus',
+            default_volume=50
         ),
         prefix='!',
-        token='Insert Token Here'
+        token='Insert Token Here',
+        random=dict(
+            useRandomDotOrg=True,
+            preFetchCount=30,
+        ),
+        mods=[]
     )
 
     defaults['lines'] = dict(
@@ -119,10 +129,16 @@ def get_defaults():
 
 
 def migrate(version):
-    print("Migrating old config version from v{} to v{}..".format(version, VERSION))
+    _logger.info("Migrating old config version from v{} to v{}..".format(version, VERSION))
     if version is -1:
         # There was no previous version, so there isn't anything we really can do
         return
+    
+    if version is 1:
+        # rename music to playlists
+        _conf['playlists'] = _conf['music']
+        del _conf['music']
+        version = 2
 
 class SettingDict:
 
@@ -165,6 +181,10 @@ class Conf(SettingDict):
     @property
     def lines(self):
         return self._lines
+    
+    @property
+    def playlists(self):
+        return self._conf['playlists']
 
 
 class Lines(SettingDict):
@@ -235,11 +255,7 @@ class Config(SettingDict):
     def __init__(self, config):
         super().__init__(config)
         self._config = config
-        self._voice = Voice(self._config['voice'])
-    
-    @property
-    def voice(self):
-        return self._voice
+        self._random = Random(self._config['random'])
     
     @property
     def prefix(self):
@@ -249,16 +265,28 @@ class Config(SettingDict):
     def token(self):
         return self._config['token']
 
+    @property
+    def random(self):
+        return self._random
 
-class Voice(SettingDict):
+    @property
+    def mods(self):
+        return self._config['mods']
 
-    def __init__(self, voice):
-        super().__init__(voice)
-        self._voice = voice
+
+class Random(SettingDict):
+
+    def __init__(self, random):
+        super().__init__(random)
+        self._random = random
     
     @property
-    def opus(self):
-        return self._voice['opus']
+    def useRandomDotOrg(self):
+        return self._random['useRandomDotOrg']
+
+    @property
+    def preFetchCount(self):
+        return self._random['preFetchCount']
 
 
 # Load the config on import
