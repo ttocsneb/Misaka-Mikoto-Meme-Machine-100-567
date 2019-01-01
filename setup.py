@@ -8,17 +8,15 @@ with open('README.md', 'r') as fh:
 
 # All the pip dependencies required for installation.
 INSTALL_REQUIRES = [
-      'discord.py[voice]',
+      'discord.py',
       'ruamel.yaml',
-      'sqlalchemy',
-      'alembic',
-      'youtube_dl'
+      'marshmallow'
 ]
 
 
 def params():
 
-      name = "Dm's Assistant"
+      name = "Discord Dice Roller Bot"
 
       version = "0.1"
 
@@ -39,13 +37,12 @@ def params():
             "Programming Language :: Python :: 3.5",
             "Programming Language :: Python :: Implementation :: CPython",
             "Topic :: Communications :: Chat",
-            "Topic :: Games/Entertainment :: Role-Playing",
-            "Topic :: Multimedia :: Sound/Audio"
+            "Topic :: Games/Entertainment :: Role-Playing"
       ]
       author = 'Noobot9k, TheVoiceInsideYourHead, Benjamin Jacobs'
-      url = 'https://github.com/MemeMasters/Misaka-Mikoto-Meme-Machine-100-567'
+      url = 'https://github.com/ttocsneb/discordDiceBot'
 
-      packages = ['dm_assist']
+      packages = ['dm_assist']  # TODO: Change to dice_roller
 
       entry_points = {
             'console_scripts': [

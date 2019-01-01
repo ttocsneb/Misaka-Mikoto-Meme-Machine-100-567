@@ -4,7 +4,7 @@ import asyncio
 import discord
 from discord.ext import commands
 
-from .. import config
+from .. import config, db
 from ..config import config as conf
 
 from . import misc, dice
@@ -16,10 +16,27 @@ class Bot:
         self.bot = None
         self._logger = logging.getLogger(__name__)
 
+    def get_prefix(self, bot, message):
+        """
+        Dynamically get a server's prefix
+        """
+        sid = message.server.id
+        try:
+            server = db.db.database[sid]
+        except KeyError:
+            self._logger.info("Setting up database for new server: %s", sid)
+            server = db.schemas.Server(sid, conf.config.prefix)
+            db.db.database[sid] = server
+            db.db.dump(sid)
+
+        # Add the optional @ mention
+        return [server.prefix, commands.when_mentioned(bot, message)]
+
     def setup(self):
         self.bot = commands.Bot(
-            command_prefix=commands.when_mentioned_or(conf.config.prefix),
-            description='An attempt to understand the confusing world around me.'
+            command_prefix=self.get_prefix,
+            description=conf.config.description,
+            pm_help=None
         )
 
         self.bot.add_cog(misc.Misc(self.bot))
@@ -38,7 +55,7 @@ class Bot:
             self._logger.info("Setting my activity to %s", game_str)
             game = discord.Game(name=game_str)
 
-            await self.bot.change_presence(status=discord.Status.idle, game=game)
+            await self.bot.change_presence(status=discord.Status.online, game=game)
 
             self._logger.info("______________")
 

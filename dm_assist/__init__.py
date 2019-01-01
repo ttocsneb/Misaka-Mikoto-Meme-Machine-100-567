@@ -8,6 +8,9 @@ import signal
 
 from . import config
 from .config import config as conf
+
+from . import db
+
 from .bot import Bot
 
 _logger = logging.getLogger(__name__)
@@ -61,6 +64,9 @@ def serve(test=False, sql_file=None):
         except SystemExit:
             return
     
+    _logger.info("Loading Database")
+    db.db.load_all()
+
     if not test:
         _logger.info("Starting Bot..")
         with sigint_shutdown():

@@ -4,7 +4,8 @@ import logging
 
 from ruamel import yaml
 
-__config_file = os.path.join(dirname(dirname(__file__)), 'config.yaml')
+__config_dir = dirname(dirname(__file__))
+__config_file = os.path.join(__config_dir, 'config.yaml')
 VERSION = 2
 
 _conf = dict()
@@ -89,12 +90,14 @@ def get_defaults():
             default_volume=50
         ),
         prefix='!',
+        description='I am a proffesional dice roller.  I use Random.org to roll my dice.\nMy source code is available at https://github.com/ttocsneb/discordDiceBot',
         token='Insert Token Here',
         random=dict(
             useRandomDotOrg=True,
             preFetchCount=30,
         ),
-        mods=[]
+        mods=[],
+        db_file=os.path.join(__config_dir, "db.dat")
     )
 
     defaults['lines'] = dict(
@@ -272,6 +275,14 @@ class Config(SettingDict):
     @property
     def mods(self):
         return self._config['mods']
+    
+    @property
+    def db_file(self):
+        return self._config['db_file']
+    
+    @property
+    def description(self):
+        return self._config['description']
 
 
 class Random(SettingDict):
