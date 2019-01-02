@@ -8,6 +8,8 @@ from ..config import config
 
 class Dice:
 
+    MAX_ROLLS = 500
+
     def __init__(self):
         self._low = False
         self._rolled_dice = list()
@@ -119,7 +121,7 @@ class Dice:
 
         :returns list: a list of all the rolled dice
         """
-        return [self.roll(sides) for _ in range(times)]
+        return [self.roll(sides) for _ in range(min(times, self.__class__.MAX_ROLLS))]
     
     def roll_top(self, sides: int, top_rolls=3, times=4, best=True) -> int:
         """

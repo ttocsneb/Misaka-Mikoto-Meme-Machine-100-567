@@ -36,7 +36,6 @@ async def populate_random_buffer(max, prefetch=None, use_true_random=True):
             numbers = rnumlistwithreplacement(num, max, 1)
         except NoQuotaError:
             _logger.warning('TrueRandom: Daily quota has run out, using urandom instead')
-        else:
             numbers = urandom_list(num, max)
     else:
         numbers = urandom_list(num, max)
@@ -46,7 +45,7 @@ async def populate_random_buffer(max, prefetch=None, use_true_random=True):
     
     queue = random_buffer[str(max)]
     for value in numbers:
-        await queue.put(value)
+        await queue.put(int(value))
 
 
 def randint(max, use_true_random=True):

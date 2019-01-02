@@ -101,7 +101,9 @@ class Dice:
         dice = util.dice.rolled_dice
         if len(dice) > 0:
             await self.bot.say(self.print_dice(dice))
-            await self.bot.say(self.print_dice_one_liner(dice))
+            one_liner = self.print_dice_one_liner(dice)
+            if one_liner is not None:
+                await self.bot.say(one_liner)
 
         await self.bot.say("According to my notes, the answer is: **{}**".format(value))
 
@@ -152,7 +154,9 @@ class Dice:
                     data[2])
             await self.bot.say(message)
 
-        await self.bot.say(self.print_dice_one_liner(dice))
+        one_liner = self.print_dice_one_liner(dice)
+        if one_liner is not None:
+            await self.bot.say(one_liner)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
@@ -242,7 +246,9 @@ class Dice:
         if len(dice) > 1:
             await self.bot.say(self.print_dice(dice))
         
-        await self.bot.say(self.print_dice_one_liner(dice))
+        one_liner = self.print_dice_one_liner(dice)
+        if one_liner is not None:
+            await self.bot.say(one_liner)
         
         await self.bot.say("You got **{}**".format(sum))
         
@@ -270,7 +276,9 @@ class Dice:
         if len(dice) > 1:
             await self.bot.say(self.print_dice(dice))
         
-        await self.bot.say(self.print_dice_one_liner(dice))
+        one_liner = self.print_dice_one_liner(dice)
+        if one_liner is not None:
+            await self.bot.say(one_liner)
         
         await self.bot.say("You got **{}**".format(sum))
         
