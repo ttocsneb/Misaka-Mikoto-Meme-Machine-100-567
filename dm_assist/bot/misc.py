@@ -8,6 +8,7 @@ from discord.ext import commands
 from dm_assist.config import config
 
 from ..config import config
+from ..db import db
 
 
 class Misc:
@@ -32,3 +33,18 @@ class Misc:
         '''Pings the bot to check that it hasn't died or something'''
         self._logger.info(ctx.message.author.id + " pinged")
         await self.bot.say("PONGU!")
+    
+    @commands.command(pass_context=True)
+    async def prefix(self, ctx, prefix: str):
+        """
+        Change the prefix for this bot.
+
+        Note You must have permission to manage the server to do this.
+        """
+        if ctx.message.author.server_permissions.manage_server:
+            server = db.database[ctx.message.server.id]
+            server.prefix = prefix[0]
+            server.save()
+            await self.bot.say("Successfully changed the prefix to `{}`".format(server.prefix))
+        else:
+            await self.bot.say("You don't have the permissions to change my prefix!")
