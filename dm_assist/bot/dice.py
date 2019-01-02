@@ -2,8 +2,10 @@ import asyncio
 import math
 from discord.ext import commands
 
-from dm_assist.config import config
-from dm_assist import util
+from ..config import config
+from .. import util
+
+from ..db import db, schemas
 
 # Roleplay init module
 class Dice:
@@ -11,7 +13,8 @@ class Dice:
     def __init__(self, bot):
         self.bot = bot
     
-    async def print_dice(self, dice):
+    @staticmethod
+    def print_dice(dice):
         # This is my job security
         dice_string = ',\n'.join(
             [', '.join(
@@ -21,9 +24,10 @@ class Dice:
                 for i in range(min(int(math.ceil(len(dice) / 10.0)), 4))
             ])
 
-        await self.bot.say("Rolled:\n```\n{}{}\n```".format(dice_string, '...' if len(dice) > 30 else ''))
+        return "Rolled:\n```\n{}{}\n```".format(dice_string, '...' if len(dice) > 30 else '')
 
-    async def print_dice_one_liner(self, dice):
+    @staticmethod
+    def print_dice_one_liner(dice):
         """
         Prints at most one one-liner from the rolled dice.
 
@@ -48,23 +52,19 @@ class Dice:
             line = "[{l[0]}/{l[1]}]: ".format(l=one_liner)
  
             if one_liner[1] is 1 or one_liner[1] is 0:
-                await self.bot.say(line + util.get_random_index(config.lines.dumb))
-                return
+                return line + util.get_random_index(config.lines.dumb)
  
             if one_liner[0] is 1:
-                await self.bot.say(line + util.get_random_index(config.lines.critFails))
-                return
+                return line + util.get_random_index(config.lines.critFails)
 
             if one_liner[0] is one_liner[1]:
-                await self.bot.say(line + util.get_random_index(config.lines.crits))
-                return
+                return line + util.get_random_index(config.lines.crits)
 
             if str(one_liner[0]) in config.lines.on_roll:
-                await self.bot.say(line + util.get_random_index(config.lines.on_roll[str(one_liner[0])]))
-                return
+                return line + util.get_random_index(config.lines.on_roll[str(one_liner[0])])
 
-    @commands.command()
-    async def calc(self, *, equation: str):
+    @commands.command(pass_context=True)
+    async def calc(self, ctx:commands.Context, *, equation: str):
         """
         Calculates an equation.
 
@@ -76,6 +76,20 @@ class Dice:
 
         xdy, adv(sides), dis(sides), top(times, sides, top_dice), bot(times, sides, top_dice), round(x)
         """
+
+        # Parse any variables in the equation first
+        server = db.database[ctx.message.server.id]
+        user = server.get_user(ctx.message.author.id)
+        if user is None:
+            user = schemas.User(ctx.message.author.id)
+            server.add_user(user)
+            server.save()
+        try:
+            equation = equation.format(**user.stats)
+        except KeyError as ke:
+            await self.bot.say("I couldn't find the variable " + str(ke))
+            return
+
         try:
             util.dice.logging_enabled = True
             value = util.calculator.parse_equation(equation)
@@ -86,8 +100,8 @@ class Dice:
         
         dice = util.dice.rolled_dice
         if len(dice) > 0:
-            await self.print_dice(dice)
-            await self.print_dice_one_liner(dice)
+            await self.bot.say(self.print_dice(dice))
+            await self.bot.say(self.print_dice_one_liner(dice))
 
         await self.bot.say("According to my notes, the answer is: **{}**".format(value))
 
@@ -118,7 +132,7 @@ class Dice:
 
         dice = util.dice.rolled_dice
         if len(dice) > 1:
-            await self.print_dice(dice)
+            await self.bot.say(self.print_dice(dice))
 
         total = data[0]
         rolls = roll[0]
@@ -138,7 +152,7 @@ class Dice:
                     data[2])
             await self.bot.say(message)
 
-        await self.print_dice_one_liner(dice)
+        await self.bot.say(self.print_dice_one_liner(dice))
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
@@ -226,9 +240,9 @@ class Dice:
 
         dice = util.dice.rolled_dice
         if len(dice) > 1:
-            await self.print_dice(dice)
+            await self.bot.say(self.print_dice(dice))
         
-        await self.print_dice_one_liner(dice)
+        await self.bot.say(self.print_dice_one_liner(dice))
         
         await self.bot.say("You got **{}**".format(sum))
         
@@ -254,9 +268,9 @@ class Dice:
 
         dice = util.dice.rolled_dice
         if len(dice) > 1:
-            await self.print_dice(dice)
+            await self.bot.say(self.print_dice(dice))
         
-        await self.print_dice_one_liner(dice)
+        await self.bot.say(self.print_dice_one_liner(dice))
         
         await self.bot.say("You got **{}**".format(sum))
         

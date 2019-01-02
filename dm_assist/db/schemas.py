@@ -23,8 +23,10 @@ class Item(object):
 
 
 class User(object):
-    def __init__(self, id, stats):
+    def __init__(self, id, stats=None):
         self.id = id
+        if stats is None:
+            stats = dict()
         self.stats = stats
     
     @property
@@ -110,18 +112,23 @@ class Server(object):
         raises KeyError if none exist
         """
         for user in self.users:
-            if user.id is id:
+            if user.id == id:
                 return user
         raise KeyError
     
-    def get_user(self, id, default=None):
+    def get_user(self, id):
         """
         Get the user object from the given id
+
+        If no user exists, a new user will be created and added to the database
         """
         try:
             return self.user(id)
         except KeyError:
-            return default
+            user = User(id)
+            self.users.append(user)
+            self.save()
+            return user
     
     def add_user(self, user: User):
         """

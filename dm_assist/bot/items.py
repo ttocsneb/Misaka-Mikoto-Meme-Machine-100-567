@@ -1,3 +1,4 @@
+import logging
 import asyncio
 
 from discord.ext import commands
@@ -11,6 +12,7 @@ class Items:
 
     def __init__(self, bot):
         self.bot = bot
+        self._logger = logging.getLogger(__name__)
     
     @staticmethod
     def say(messages, string):
@@ -121,6 +123,7 @@ class Items:
                 if params[0] == 'add':  # Add item
                     item = schemas.Item(params[1])
                     server.add_item(item)
+                    server.save()
                     self.say(message, "Added " + item.short_desc)
                     self.say(message, "Use `{pre}item {} add <name> <equation>` to give it an equation".format(
                         item.short_desc, pre=server.prefix))
@@ -130,7 +133,7 @@ class Items:
                         if params[0] == 'del':  # Delete item
                             self.say(message, "Deleted " + item.short_desc)
                             server.items.remove(item)
-                        server.save()
+                            server.save()
             else:
                 usage()
 
@@ -152,6 +155,7 @@ class Items:
                     if equation is not None:
                         self.say(message, "Deleted {} from {}".format(params[2].capitalize(), item.short_desc))
                         del item.equations[params[2]]
+                        server.save()
                     else:
                         self.say(message, "Could not find {} in {}".format(params[2].capitalize(), item.short_desc))
             else:
@@ -170,6 +174,7 @@ class Items:
                             params[2].capitalize(), params[0], params[2], ' '.join(params[3:]), pre=server.prefix))
                     else:
                         item.equations[params[2]] = ' '.join(params[3:])
+                        server.save()
                         self.say(message, "added equation {} for {}".format(params[2].capitalize(), item.short_desc))
                 elif params[1] == 'edit':  # Edit Equation
                     if item.equations.get(params[2]) is None:
@@ -178,8 +183,177 @@ class Items:
                     else:
                         item.equations[params[2]] = ' '.join(params[3:])
                         self.say(message, "edited equation {} in {}".format(params[2].capitalize(), item.short_desc))
-                server.save()
+                        server.save()
         else:
             usage()
 
+        await self.say_message(message)
+
+    @commands.command(pass_context=True)
+    async def rolli(self, ctx: commands.Context, item: str, name=None, *params):
+        """
+        Roll an item's equation
+
+        Usage: <item> [name] [param0] [param1] ...
+
+        If you don't specify an equation name, then the top equation will be used.
+
+        Note: you cannot add paramters if you don't specify the name
+
+        Parameters are manditory if the equation uses them.  a paramter is specified by {0}, {1}, etc.
+        """
+
+        item = item.lower()
+
+        message = list()
+
+        server = db.database[ctx.message.server.id]
+        user = server.get_user(ctx.message.author.id)
+        
+        item_obj = self.get_item(message, server, item)
+        if item_obj is None:
+            await self.say_message(message)
+            return
+        
+        if len(item_obj.equations) is 0:
+            self.say(message, "{} doesn't have any equations yet.")
+            self.say(message, "Use `{pre}item {} add <name> <equation>` to give it an equation".format(
+                item_obj.short_desc, pre=server.prefix))
+            await self.say_message(message)
+            return
+
+        if name is None:
+            equation = item_obj.equations.values()[0]
+        else:
+            equation = item_obj.equations.get(name.lower())
+            if equation is None:
+                self.say(message, "I couldn't find {}, did you spell it right".format(name.lower()))
+                await self.say_message(message)
+                return
+
+        # Parse any variables in the equation first.
+        try:
+            _params = list()
+            # Paramters can also be equations, but can't contains spaces
+            for param in params:
+                param = param.format(**user.stats)
+                try:
+                    param = util.calculator.parse_equation(param)
+                except util.BadEquation as be:
+                    self.say(message, str(be))
+                    await self.say_message(message)
+                    return
+            equation = equation.format(*params, **user.stats)
+        except:
+            try:
+                raise
+            except KeyError as ke:
+                self.say(message, "Missing variable " + str(ke))
+            except IndexError:
+                self.say(message, "Not enough parameters")
+            finally:
+                await self.say_message(message)
+                return
+
+        try:
+            util.dice.logging_enabled = True
+            value = util.calculator.parse_equation(equation)
+            util.dice.logging_enabled = False
+        except util.BadEquation as be:
+            self.say(message, "Couldn't parse the equation: " + str(be))
+            await self.say_message(message)
+            return
+
+        dice = util.dice.rolled_dice
+        if len(dice) > 0:
+            from .dice import Dice 
+            self.say(message, Dice.print_dice(dice))
+            one_liner = Dice.print_dice_one_liner(dice)
+            if one_liner is not None:
+                self.say(message, one_liner)
+        
+        self.say(message, "You got a **{}**".format(value))
+        
+        await self.say_message(message)
+
+        if util.dice.low:
+            asyncio.ensure_future(util.dice.load_random_buffer())
+
+    @commands.command(pass_context=True)
+    async def stats(self, ctx: commands.Context, *params):
+        """
+        manipulate the your stats.  say `help stats` for more details
+
+        - stats                     (List all of your stats)
+        - stats set <stat> <value>  (set a specific stat)
+        - stats del <stat>          (delete a stat)
+        - stats <stat>              (show a single stat)
+        """
+
+        message = list()
+
+        params = [p.lower() for p in params]
+
+        server = db.database[ctx.message.server.id]
+        user = server.get_user(ctx.message.author.id)
+
+        def usage():
+            self.say(message, "Usage:\n```")
+            self.say(message, server.prefix + "stats")
+            self.say(message, server.prefix + "stats set <stat> <value>")
+            self.say(message, server.prefix + "stats del <stat>")
+            self.say(message, server.prefix + "stats <stat>\n```")
+
+        if len(params) is 0:  # Print all stats
+            if len(user.stats) is 0:
+                self.say(message, "You don't have any stats")
+                self.say(message, "Use `{pre}stats set <stat> <value>` to add stats".format(pre=server.prefix))
+            else:
+                self.say(message, '```')
+                self.say(message, user.description)
+                self.say(message, '```')
+            await self.say_message(message)
+            return
+        
+        if len(params) is 1:
+            # Check for too few params
+            if params[0] in ["set", 'del']:
+                self.say(message, "Usage: `{pre}stats {} <stat>{}`".format(
+                    params[0], ' <value>' if params[0] == 'set' else '', pre=server.prefix))
+            else:
+                # Show Single Stat
+                stat = user.stats.get(params[0])
+                if stat is None:
+                    self.say(message, "Couldn't find `{}` stat".format(params[0]))
+                    await self.say_message(message)
+                    return
+                
+                self.say(message, "```\n{}: {}\n```".format(params[0], stat))
+            await self.say_message(message)
+            return
+        
+        if len(params) is 2:
+            # Check for too few params
+            if params[0] == "set":
+                self.say(message, "Usage: `{pre}stats set <stat> <value>`".format(pre=server.prefix))
+            else:
+                if params[0] == "del":  # Delete a stat
+                    if params[1] in user.stats:
+                        self.say(message, "Deleted " + params[1])
+                        del user.stats[params[1]]
+                        server.save()
+                    else:
+                        self.say(message, "Could not find " + params[1])
+                else:
+                    usage()
+            await self.say_message(message)
+            return
+        
+        # Set a stat
+        if params[0] == "set":
+            user.stats[params[1]] = '(' + " ".join(params[2:]) + ')'
+            self.say(message, "Set {} to `{}`".format(params[1], ' '.join(params[2:])))
+            server.save()
+        else:
+            usage()
         await self.say_message(message)

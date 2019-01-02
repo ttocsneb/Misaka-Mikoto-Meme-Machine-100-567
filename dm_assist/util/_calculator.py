@@ -1,4 +1,5 @@
 import re
+import math
 
 from . import dice, BadEquation
 
@@ -20,7 +21,8 @@ class Calculator:
         '*': 3, '/': 3,
         '^':4, '%':4,
         'd': 5,
-        'round': 6, 'adv': 6, 'dis': 6, 'top': 6, 'bot': 6
+        'round': 6, 'max': 6, 'min': 6, 'floor': 6, 'ceil': 6,
+        'adv': 6, 'dis': 6, 'top': 6, 'bot': 6
     }
     
     # A function by default has 2 arguments, if it does not, list the number required here.
@@ -29,7 +31,9 @@ class Calculator:
         'adv': 1,
         'dis': 1,
         'top': 3,
-        'bot': 3
+        'bot': 3,
+        'floor': 1,
+        'ceil': 1
     }
 
     # All the functions are defined here as lambdas.
@@ -45,7 +49,11 @@ class Calculator:
         'dis': lambda a: dice.roll_top(round(a), 1, 2, False),
         'top': lambda a, b, c: dice.roll_top(round(b), round(c), round(a)),
         'bot': lambda a, b, c: dice.roll_top(round(b), round(c), round(a), False),
-        'round': lambda a: round(a)
+        'round': lambda a: round(a),
+        'max': lambda a, b: max(a, b),
+        'min': lambda a, b: min(a, b),
+        'floor': lambda a: math.floor(a),
+        'ceil': lambda a: math.floor(a)
     }
 
     def _load_equation(self, data: list) -> list:
