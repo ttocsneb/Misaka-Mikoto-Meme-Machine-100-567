@@ -7,7 +7,7 @@ from discord.ext import commands
 from .. import config, db
 from ..config import config as conf
 
-from . import misc, dice
+from . import misc, dice, items
 
 
 class Bot:
@@ -40,7 +40,8 @@ class Bot:
         )
 
         self.bot.add_cog(misc.Misc(self.bot))
-        self.bot.add_cog(dice.Roleplay(self.bot))
+        self.bot.add_cog(dice.Dice(self.bot))
+        self.bot.add_cog(items.Items(self.bot))
 
 
     def run(self):

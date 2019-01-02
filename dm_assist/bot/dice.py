@@ -6,7 +6,7 @@ from dm_assist.config import config
 from dm_assist import util
 
 # Roleplay init module
-class Roleplay:
+class Dice:
 
     def __init__(self, bot):
         self.bot = bot
