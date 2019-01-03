@@ -52,7 +52,7 @@ class Bot:
         async def on_ready():
             self._logger.info("I'm online!")
 
-            game_str = "say {}help".format(conf.config.prefix)
+            game_str = "with dice!"
             self._logger.info("Setting my activity to %s", game_str)
             game = discord.Game(name=game_str)
 

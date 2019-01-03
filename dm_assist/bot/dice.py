@@ -35,12 +35,7 @@ class Dice:
         """
         one_liners = list()
  
-        new_dice = dice.copy()
- 
-        # Add the sum of the dice as a roll
-        new_dice.append((sum([x[0] for x in dice]), sum([x[1] for x in dice])))
- 
-        for die in new_dice:
+        for die in dice:
             if die[0] is 1 or die[0] is die[1] \
                 or die[1] is 1 \
                 or str(die[0]) in config.lines.on_roll:
@@ -63,6 +58,14 @@ class Dice:
             if str(one_liner[0]) in config.lines.on_roll:
                 return line + util.get_random_index(config.lines.on_roll[str(one_liner[0])])
 
+    @staticmethod
+    def say(messages, text):
+        if text is not None:
+            messages.append(str(text))
+    
+    async def send(self, messages):
+        await self.bot.say('\n'.join(messages))
+
     @commands.command(pass_context=True)
     async def calc(self, ctx:commands.Context, *, equation: str):
         """
@@ -77,6 +80,8 @@ class Dice:
         xdy, adv(sides), dis(sides), top(times, sides, top_dice), bot(times, sides, top_dice), round(x)
         """
 
+        message = list()
+
         # Parse any variables in the equation first
         server = db.database[ctx.message.server.id]
         user = server.get_user(ctx.message.author.id)
@@ -87,7 +92,8 @@ class Dice:
         try:
             equation = equation.format(**user.stats)
         except KeyError as ke:
-            await self.bot.say("I couldn't find the variable " + str(ke))
+            self.say(message, "I couldn't find the variable " + str(ke))
+            await self.send(message)
             return
 
         try:
@@ -95,17 +101,17 @@ class Dice:
             value = util.calculator.parse_equation(equation)
             util.dice.logging_enabled = False
         except util.BadEquation as exception:
-            await self.bot.say("{} Tell me again, but slower..".format(exception))
+            self.say(message, "{} Tell me again, but slower..".format(exception))
+            await self.send(message)
             return
         
         dice = util.dice.rolled_dice
         if len(dice) > 0:
-            await self.bot.say(self.print_dice(dice))
-            one_liner = self.print_dice_one_liner(dice)
-            if one_liner is not None:
-                await self.bot.say(one_liner)
+            self.say(message, self.print_dice(dice))
+            self.say(message, self.print_dice_one_liner(dice + [(value, "sum")]))
 
-        await self.bot.say("According to my notes, the answer is: **{}**".format(value))
+        self.say(message, "According to my notes, the answer is: **{}**".format(value))
+        await self.send(message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
@@ -115,6 +121,8 @@ class Dice:
     async def roll(self, roll: str=None):
         '''Rolls X dice with Y sides. Usage: roll xdy'''
 
+        message = list()
+
         if roll is None:
             await self.bot.say("Usage: roll xdy\n(roll 1d20)")
             return
@@ -122,8 +130,10 @@ class Dice:
         try:
             roll = roll.lower().split("d")
 
+            roll = [int(r) for r in roll]
+
             util.dice.logging_enabled = True
-            data = util.dice.roll_sum(int(roll[1]), int(roll[0]))
+            data = util.dice.roll_sum(roll[1], roll[0])
             util.dice.logging_enabled = False
         except IndexError:
             await self.bot.say("I can't understand what you're trying to say, the format is `<times>d<sides>`")
@@ -134,29 +144,31 @@ class Dice:
 
         dice = util.dice.rolled_dice
         if len(dice) > 1:
-            await self.bot.say(self.print_dice(dice))
+            self.say(message, self.print_dice(dice))
 
         total = data[0]
         rolls = roll[0]
 
         # + " with " + str(TotalCrits) + " crits!")
         if rolls is 1:
-            await self.bot.say(str(total))
+            self.say(message, total)
         else:
-            message = str(total)
+            msg = str(total)
 
             if data[1] > 0:
-                message += " with {} crits".format(data[1])
+                msg += " with {} crits".format(data[1])
 
             if data[2] > 0:
-                message += "{} {} fails".format(
+                msg += "{} {} fails".format(
                     " with" if data[1] is 0 else ", and",
                     data[2])
-            await self.bot.say(message)
+            self.say(message, msg)
 
-        one_liner = self.print_dice_one_liner(dice)
+        one_liner = self.print_dice_one_liner(dice + [(total, roll[0] * roll[1])])
         if one_liner is not None:
-            await self.bot.say(one_liner)
+            self.say(message, one_liner)
+        
+        await self.send(message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
@@ -180,6 +192,9 @@ class Dice:
         """
         Rolls a die with advantage.
         """
+
+        message = list()
+
         try:
             sides = int(sides)
         except ValueError:
@@ -191,11 +206,12 @@ class Dice:
 
         final = max(d1, d2)
 
-        await self.bot.say("You rolled a {}, and a {}.\n you got a **{}**.".format(d1, d2, final))
+        self.say(message, "You rolled a {}, and a {}.\n you got a **{}**.".format(d1, d2, final))
         if d1 is d2:
-            await self.bot.say("You're dead either way :)")
+            self.say(message, "You're dead either way :)")
         
-        await self.print_dice_one_liner([(d1, sides), (d2, sides)])
+        self.say(message, self.print_dice_one_liner([(d1, sides), (d2, sides)]))
+        await self.send(message)
     
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
@@ -205,10 +221,13 @@ class Dice:
         """
         Rolls a die with disadvantage.
         """
+
+        message = list()
+
         try:
             sides = int(sides)
         except ValueError:
-            self.bot.say("That's not a number, silly.")
+            await self.bot.say("That's not a number, silly.")
             return
 
         d1 = util.dice.roll(sides)
@@ -216,11 +235,12 @@ class Dice:
 
         final = min(d1, d2)
 
-        await self.bot.say("You rolled a {}, and a {}.\n you got a **{}**.".format(d1, d2, final))
+        self.say(message, "You rolled a {}, and a {}.\n you got a **{}**.".format(d1, d2, final))
         if d1 is d2:
-            await self.bot.say("You're dead either way :)")
+            self.say(message, "You're dead either way :)")
 
-        await self.print_dice_one_liner([(d1, sides), (d2, sides)])
+        self.say(message, self.print_dice_one_liner([(d1, sides), (d2, sides)]))
+        await self.send(message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
@@ -231,12 +251,15 @@ class Dice:
         Rolls a number of dice, and takes only the top dice.
         """
 
+        message = list()
+
         try:
             sides = int(sides)
             times = int(times)
             top_dice = int(top_dice)
         except ValueError:
             self.bot.say("You're supposed to enter number not whatever that was")
+            return
 
         util.dice.logging_enabled = True
         sum = util.dice.roll_top(sides, top_dice, times)
@@ -244,13 +267,14 @@ class Dice:
 
         dice = util.dice.rolled_dice
         if len(dice) > 1:
-            await self.bot.say(self.print_dice(dice))
+            self.say(message, self.print_dice(dice))
         
-        one_liner = self.print_dice_one_liner(dice)
+        one_liner = self.print_dice_one_liner(dice + [(sum, sides * top_dice)])
         if one_liner is not None:
-            await self.bot.say(one_liner)
+            self.say(message, one_liner)
         
-        await self.bot.say("You got **{}**".format(sum))
+        self.say(message, "You got **{}**".format(sum))
+        await self.send(message)
         
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
@@ -261,12 +285,15 @@ class Dice:
         Rolls a number of dice, and takes only the bottom dice.
         """
 
+        message = list()
+
         try:
             sides = int(sides)
             times = int(times)
             top_dice = int(top_dice)
         except ValueError:
             self.bot.say("You're supposed to enter number not whatever that was")
+            return
 
         util.dice.logging_enabled = True
         sum = util.dice.roll_top(sides, top_dice, times, False)
@@ -274,13 +301,14 @@ class Dice:
 
         dice = util.dice.rolled_dice
         if len(dice) > 1:
-            await self.bot.say(self.print_dice(dice))
+            self.say(message, self.print_dice(dice))
         
-        one_liner = self.print_dice_one_liner(dice)
+        one_liner = self.print_dice_one_liner(dice + [(sum, sides * top_dice)])
         if one_liner is not None:
-            await self.bot.say(one_liner)
+            self.say(message, one_liner)
         
-        await self.bot.say("You got **{}**".format(sum))
+        self.say(message, "You got **{}**".format(sum))
+        await self.send(message)
         
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())

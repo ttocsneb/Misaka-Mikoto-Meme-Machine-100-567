@@ -268,7 +268,7 @@ class Items:
         if len(dice) > 0:
             from .dice import Dice 
             self.say(message, Dice.print_dice(dice))
-            one_liner = Dice.print_dice_one_liner(dice)
+            one_liner = Dice.print_dice_one_liner(dice + [(value, "sum")])
             if one_liner is not None:
                 self.say(message, one_liner)
         
