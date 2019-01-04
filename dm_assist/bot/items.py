@@ -16,10 +16,13 @@ class Items:
     
     @staticmethod
     def say(messages, string):
-        messages.append(string)
+        if string is not None:
+            messages.append(string)
     
     async def say_message(self, messages):
-        await self.bot.say('\n'.join(messages))
+        message = '\n'.join(messages)
+        if message:
+            await self.bot.say(message)
 
     def get_item(self, message, server, name: str) -> schemas.Item:
 
@@ -44,153 +47,61 @@ class Items:
             return None
 
 
-    @commands.command(pass_context=True)
-    async def item(self, ctx: commands.Context, *params):
-        """
-        manipulate the server's items.  say `help item` for more details
+    async def items_manipulate(self, ctx: commands.Context, server: schemas.Server, command: str, item_name: str) -> list:
+        message = list()
 
-        - item:                                 lists all the items
-        - item add <item>:                      adds a new item
-        - item del <item>:                      deletes an item
-
-        - item <item>:                          lists item equations
-        - item <item> add <name> <equation>:    adds a new equation
-        - item <item> del <name>:               deletes an equation
-        - item <item> edit <name> <equation>:   edits an item equation
-
-        item can either be the item's name (`sword`), name and id (`sword:5`), or just id (`:5`)
-        """
-
-        message = []
-
-        server = db.database[ctx.message.server.id]
-
-        params = [p.lower() for p in params]
-
-        def usage():
-            prefix = server.prefix
-            self.say(message, 'Usage:\n```\n')
-            self.say(message, prefix + 'item add <item>')
-            self.say(message, prefix + 'item del <item>')
-            self.say(message, prefix + 'item <item> add <name> <equation>')
-            self.say(message, prefix + 'item <item> del <name>')
-            self.say(message, prefix + 'item <item> edit <name> <equation>\n```')
-
-        if len(params) is 0:  # List Items
-            if len(server.items) is 0:
-                self.say(message, 'There are no items.')
-                await self.say_message(message)
-                return
-            items = '\n'.join([i.short_desc for i in server.items])
-            self.say(message, 'here is a list of all the items:')
-            self.say(message, '```\n{}\n```'.format(items))
-            await self.say_message(message)
-            return
-        
-        if len(params) is 1:  # Describe Item
-            params = params[0]
-
-            # Check for not enough arguments
-            if params in ['add', 'del']:
-                self.say(message, 'Usage: `{pre}item {} <item>`'.format(params, pre=server.prefix))
-                await self.say_message(message)
-                return
-
-            item = self.get_item(message, server, params)
-
+        if command == "add":
+            item = schemas.Item(item_name)
+            server.add_item(item)
+            server.save()
+            self.say(message, "Added " + item.short_desc)
+            self.say(message, "Use `{pre}item {} add <name> <equation>` to give it an equation".format(
+                item.short_desc, pre=server.prefix))
+        elif command == "del":
+            item = self.get_item(message, server, item_name)
             if item is not None:
-                self.say(message, '```')
-                self.say(message, item.description)
-                self.say(message, '```')
-            
-            await self.say_message(message)
-            return
-        
-        if len(params) is 2:
-            
-            # check for not enough arguments
-            if params[1] in ['add', 'del', 'edit']:
-                if params[1] == 'del':
-                    self.say(message, 'Usage: `{pre}item <item> del <name>`'.format(
-                        pre=server.prefix))
-                else:
-                    self.say(message, 'Usage: `{pre}item <item> {} <name> <equation>`'.format(
-                        params[1], pre=server.prefix))
-                await self.say_message(message)
-                return
-            
-            if params[0] in ['add', 'del']:
-                if params[0] == 'add':  # Add item
-                    item = schemas.Item(params[1])
-                    server.add_item(item)
+                self.say(message, "Deleted " + item.short_desc)
+                server.items.remove(item)
+                server.save()
+
+        return message
+    
+    async def items_edit(self, ctx: commands.Context, server: schemas.Server, command: str, item_name: str, equation_name: str, equation: str = None):
+        message = list()
+
+        if command == 'del':
+            item = self.get_item(message, server, item_name)
+            if item is not None:
+                equation = item.equations.get(equation_name)
+                if equation is not None:
+                    self.say(message, "Deleted {} from {}".format(equation_name.capitalize(), item.short_desc))
+                    del item.equations[equation_name]
                     server.save()
-                    self.say(message, "Added " + item.short_desc)
-                    self.say(message, "Use `{pre}item {} add <name> <equation>` to give it an equation".format(
-                        item.short_desc, pre=server.prefix))
                 else:
-                    item = self.get_item(message, server, params[1])
-                    if item is not None:
-                        if params[0] == 'del':  # Delete item
-                            self.say(message, "Deleted " + item.short_desc)
-                            server.items.remove(item)
-                            server.save()
-            else:
-                usage()
-
-            await self.say_message(message)
-            return
-        
-        if len(params) is 3:
-
-            # Check for not enough arguments
-            if params[1] in ['add', 'edit']:
-                self.say(message, 'Usage: `{pre}item <item> {} <name> <equation>`'.format(params[1], pre=server.prefix))
-                await self.say_message(message)
-                return
-            
-            if params[1] == 'del':  # Delete equation
-                item = self.get_item(message, server, params[0])
-                if item is not None:
-                    equation = item.equations.get(params[2])
-                    if equation is not None:
-                        self.say(message, "Deleted {} from {}".format(params[2].capitalize(), item.short_desc))
-                        del item.equations[params[2]]
-                        server.save()
-                    else:
-                        self.say(message, "Could not find {} in {}".format(params[2].capitalize(), item.short_desc))
-            else:
-                usage()
-            
-            await self.say_message(message)
-            return
-        
-        # Check if these commands are valid
-        if params[1] in ['add', 'edit']:
-            item = self.get_item(message, server, params[0])
-            if item is not None:
-                if params[1] == 'add':  # Add Equation
-                    if item.equations.get(params[2]) is not None:
-                        self.say(message, "{} already exists, use `{pre}item {} edit {} {}` to change its equation".format(
-                            params[2].capitalize(), params[0], params[2], ' '.join(params[3:]), pre=server.prefix))
-                    else:
-                        item.equations[params[2]] = ' '.join(params[3:])
-                        server.save()
-                        self.say(message, "added equation {} for {}".format(params[2].capitalize(), item.short_desc))
-                elif params[1] == 'edit':  # Edit Equation
-                    if item.equations.get(params[2]) is None:
-                        self.say(message, "{} doesn't exists, use `{pre}item {} add {} {}` to add that equation".format(
-                            params[2].capitalize(), params[0], params[2], ' '.join(params[3:]), pre=server.prefix))
-                    else:
-                        item.equations[params[2]] = ' '.join(params[3:])
-                        self.say(message, "edited equation {} in {}".format(params[2].capitalize(), item.short_desc))
-                        server.save()
+                    self.say(message, "Could not find {} in {}".format(equation_name.capitalize(), item.short_desc))
         else:
-            usage()
+            item = self.get_item(message, server, item_name)
+            if item is not None:
+                if command == 'add':  # Add Equation
+                    if item.equations.get(equation_name) is not None:
+                        self.say(message, "{} already exists, use `{pre}item {} edit {} {}` to change its equation".format(
+                            equation_name.capitalize(), item_name, equation_name, ' '.join(equation), pre=server.prefix))
+                    else:
+                        item.equations[equation_name] = ' '.join(equation)
+                        server.save()
+                        self.say(message, "added equation {} for {}".format(equation_name.capitalize(), item.short_desc))
+                elif command == 'edit':  # Edit Equation
+                    if item.equations.get(equation_name) is None:
+                        self.say(message, "{} doesn't exists, use `{pre}item {} add {} {}` to add that equation".format(
+                            equation_name.capitalize(), item_name, equation_name, ' '.join(equation), pre=server.prefix))
+                    else:
+                        item.equations[equation_name] = ' '.join(equation)
+                        self.say(message, "edited equation {} in {}".format(equation_name.capitalize(), item.short_desc))
+                        server.save()
+        
+        return message
 
-        await self.say_message(message)
-
-    @commands.command(pass_context=True)
-    async def rolli(self, ctx: commands.Context, item: str, name=None, *params):
+    async def roll(self, ctx: commands.Context, server: schemas.Server, item: str, name=None, *params):
         """
         Roll an item's equation
 
@@ -203,11 +114,8 @@ class Items:
         Parameters are manditory if the equation uses them.  a paramter is specified by {0}, {1}, etc.
         """
 
-        item = item.lower()
-
         message = list()
 
-        server = db.database[ctx.message.server.id]
         user = server.get_user(ctx.message.author.id)
         
         item_obj = self.get_item(message, server, item)
@@ -217,7 +125,7 @@ class Items:
         
         if len(item_obj.equations) is 0:
             self.say(message, "{} doesn't have any equations yet.")
-            self.say(message, "Use `{pre}item {} add <name> <equation>` to give it an equation".format(
+            self.say(message, "Use `{pre}items {} add <name> <equation>` to give it an equation".format(
                 item_obj.short_desc, pre=server.prefix))
             await self.say_message(message)
             return
@@ -278,6 +186,127 @@ class Items:
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
+
+    @commands.command(pass_context=True)
+    async def items(self, ctx: commands.Context, *params):
+        """
+        manipulate the server's items.  say `help items` for more details
+
+        - items:                                 lists all the items
+        - items add <item>:                      adds a new item
+        - items del <item>:                      deletes an item
+
+        - items <item>:                          lists item equations
+        - items <item> add <name> <equation>:    adds a new equation
+        - items <item> del <name>:               deletes an equation
+        - items <item> edit <name> <equation>:   edits an item equation
+        - items <item> <name> [0] [1] ...        calculates an item equation
+
+        item can either be the item's name (`sword`), name and id (`sword:5`), or just id (`:5`)
+
+        When creating an equation, you can use variables denoted by {} variables can be set either
+        through the `stats` command or through parameters.  If you had a stat called level; You could
+        get that stat by using {level} in your equation.  If you wanted to use a parameter in your equation,
+        use the parameter number starting at 0 ie. the first parameter is {0}, the second is {1}, and so on.
+
+        Here is an example equation for magic missile:
+
+        ceil({level} / 2)d4 + ceil({level} / 2)
+
+        magic missile gets 1 missile at 1st level that does 1d4 + 1, and an extra missile for every other
+        level beyond first (1 at 1st level, 2 at 3rd, 3 at 5th, etc.)
+
+        If I wanted to do a number of magic missiles, I could use a parameter instead of levels:
+
+        {0}d4 + {0}
+
+        When I call the equation `items magic_missile num 5`, `5` is the first argument which is the variable {0},
+        so this will equate to 5d4 + 5.
+        """
+
+        message = []
+
+        server = db.database[ctx.message.server.id]
+
+        params = [p.lower() for p in params]
+
+        usages = dict(
+            add_item=(server.prefix + 'items add <item>'),
+            del_item=(server.prefix + 'items del <item>'),
+            item_add=(server.prefix + 'items <item> add <name> <equation>'),
+            item_del=(server.prefix + 'items <item> del <name>'),
+            item_edit=(server.prefix + 'items <item> edit <name> <equation>'),
+            item_name=(server.prefix + 'items <item> <name> [0] [1] ...')
+        )
+
+        def usage():
+            self.say(message, 'Usage:\n```\n')
+            for usage in usages.values():
+                self.say(message, usage)
+            self.say(message, '```')
+
+        if len(params) is 0:  # List Items
+            if len(server.items) is 0:
+                self.say(message, 'There are no items.')
+                await self.say_message(message)
+                return
+            items = '\n'.join([i.short_desc for i in server.items])
+            self.say(message, 'here is a list of all the items:')
+            self.say(message, '```\n{}\n```'.format(items))
+            await self.say_message(message)
+            return
+        
+        if len(params) is 1:  # Describe Item
+            params = params[0]
+
+            # Check for not enough arguments
+            if params in ['add', 'del']:
+                self.say(message, usages[params + '_item'])
+                await self.say_message(message)
+                return
+
+            item = self.get_item(message, server, params)
+
+            if item is not None:
+                self.say(message, '```')
+                self.say(message, item.description)
+                self.say(message, '```')
+            
+            await self.say_message(message)
+            return
+        
+        if len(params) is 2:
+            
+            # check for not enough arguments
+            if params[1] in ['add', 'del', 'edit']:
+                self.say(message, usages['item_' + params[1]])
+                await self.say_message(message)
+                return
+            
+            if params[0] in ['add', 'del']:
+                message.extend(await self.items_manipulate(ctx, server, params[0], params[1]))
+            else:
+                await self.roll(ctx, server, params[0], params[1])
+
+            await self.say_message(message)
+            return
+        
+        if len(params) is 3:
+
+            # Check for not enough arguments
+            if params[1] in ['add', 'edit']:
+                self.say(message, usages['item_' + params[1]])
+                await self.say_message(message)
+                return
+        
+        # Check if these commands are valid
+        if params[1] in ['add', 'edit', 'del']:
+            message.extend(await self.items_edit(ctx, server, params[1], params[0], params[2], params[3:]))
+        else:
+            await self.roll(ctx, server, params[0], params[1], *params[2:])
+
+        await self.say_message(message)
+
 
     @commands.command(pass_context=True)
     async def stats(self, ctx: commands.Context, *params):

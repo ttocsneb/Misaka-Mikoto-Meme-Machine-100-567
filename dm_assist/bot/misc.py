@@ -41,10 +41,13 @@ class Misc:
 
         Note You must have permission to manage the server to do this.
         """
-        if ctx.message.author.server_permissions.manage_server:
-            server = db.database[ctx.message.server.id]
-            server.prefix = prefix[0]
-            server.save()
-            await self.bot.say("Successfully changed the prefix to `{}`".format(server.prefix))
-        else:
+        try:
+            if ctx.message.author.server_permissions.manage_server:
+                server = db.database[ctx.message.server.id]
+                server.prefix = prefix[0]
+                server.save()
+                await self.bot.say("Successfully changed the prefix to `{}`".format(server.prefix))
+            else:
+                await self.bot.say("You don't have the permissions to change my prefix!")
+        except:
             await self.bot.say("You don't have the permissions to change my prefix!")

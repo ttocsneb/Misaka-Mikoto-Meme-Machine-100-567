@@ -16,10 +16,14 @@ class Bot:
         self.bot = None
         self._logger = logging.getLogger(__name__)
 
-    def get_prefix(self, bot, message):
+    def get_prefix(self, bot, message: discord.Message):
         """
         Dynamically get a server's prefix
         """
+        if message.channel.type in [discord.ChannelType.private, discord.ChannelType.group]:
+            prefixes = [s.prefix for s in db.db.database.values()]
+            return prefixes + [commands.when_mentioned(bot, message)]
+
         sid = message.server.id
         try:
             server = db.db.database[sid]
