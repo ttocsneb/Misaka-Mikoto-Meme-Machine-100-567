@@ -47,11 +47,28 @@ class Items:
             return None
 
 
-    async def items_manipulate(self, ctx: commands.Context, server: schemas.Server, command: str, item_name: str) -> list:
+    def check_permissions(self, ctx: commands.Context, item: schemas.Item):
+        author = ctx.message.author
+
+        if author.id == item.creator.id:
+            return True
+        
+        if author.id in config.config.mods:
+            return True
+        
+        try:
+            if author.server_permissions.manage_server:
+                return True
+        except:
+            pass
+
+        return False
+
+    async def items_manipulate(self, ctx: commands.Context, server: schemas.Server, command: str, item_name: str, item_desc: str = None) -> list:
         message = list()
 
         if command == "add":
-            item = schemas.Item(item_name)
+            item = schemas.Item(item_name, creator=server.get_user(ctx.message.author.id))
             server.add_item(item)
             server.save()
             self.say(message, "Added " + item.short_desc)
@@ -60,10 +77,21 @@ class Items:
         elif command == "del":
             item = self.get_item(message, server, item_name)
             if item is not None:
-                self.say(message, "Deleted " + item.short_desc)
-                server.items.remove(item)
-                server.save()
-
+                if self.check_permissions(ctx, item):
+                    self.say(message, "Deleted " + item.short_desc)
+                    server.items.remove(item)
+                    server.save()
+                else:
+                    self.say(message, "You don't have permissions to delete that item.")
+        elif command == "desc":
+            item = self.get_item(message, server, item_name)
+            if item is not None:
+                if self.check_permissions(ctx, item):
+                    item.desc = item_desc
+                    server.save()
+                    self.say(message, "Changed {}'s description".format(item.short_desc))
+                else:
+                    self.say(message, "You don't have the permission to set this item's description")
         return message
     
     async def items_edit(self, ctx: commands.Context, server: schemas.Server, command: str, item_name: str, equation_name: str, equation: str = None):
@@ -74,30 +102,48 @@ class Items:
             if item is not None:
                 equation = item.equations.get(equation_name)
                 if equation is not None:
-                    self.say(message, "Deleted {} from {}".format(equation_name.capitalize(), item.short_desc))
-                    del item.equations[equation_name]
-                    server.save()
+                    if self.check_permissions(ctx, item):
+                        self.say(message, "Deleted {} from {}".format(equation_name.capitalize(), item.short_desc))
+                        del item.equations[equation_name]
+                        server.save()
+                    else:
+                        self.say(message, "You don't have the permissions to change that item")
                 else:
                     self.say(message, "Could not find {} in {}".format(equation_name.capitalize(), item.short_desc))
         else:
             item = self.get_item(message, server, item_name)
             if item is not None:
-                if command == 'add':  # Add Equation
-                    if item.equations.get(equation_name) is not None:
-                        self.say(message, "{} already exists, use `{pre}item {} edit {} {}` to change its equation".format(
-                            equation_name.capitalize(), item_name, equation_name, ' '.join(equation), pre=server.prefix))
-                    else:
-                        item.equations[equation_name] = ' '.join(equation)
-                        server.save()
-                        self.say(message, "added equation {} for {}".format(equation_name.capitalize(), item.short_desc))
-                elif command == 'edit':  # Edit Equation
-                    if item.equations.get(equation_name) is None:
-                        self.say(message, "{} doesn't exists, use `{pre}item {} add {} {}` to add that equation".format(
-                            equation_name.capitalize(), item_name, equation_name, ' '.join(equation), pre=server.prefix))
-                    else:
-                        item.equations[equation_name] = ' '.join(equation)
-                        self.say(message, "edited equation {} in {}".format(equation_name.capitalize(), item.short_desc))
-                        server.save()
+                if self.check_permissions(ctx, item):
+                    eq = item.equations.get(equation_name)
+                    if command == 'add':  # Add Equation
+                        if eq is not None:
+                            self.say(message, "{} already exists, use `{pre}items {} edit {} {}` to change its equation".format(
+                                equation_name.capitalize(), item_name, equation_name, equation, pre=server.prefix))
+                        else:
+                            item.equations[equation_name] = equation
+                            server.save()
+                            self.say(message, "added equation {} for {}".format(equation_name.capitalize(), item.short_desc))
+                    elif command == 'edit':  # Edit Equation
+                        if eq is None:
+                            self.say(message, "{} doesn't exists, use `{pre}items {} add {} {}` to add that equation".format(
+                                equation_name.capitalize(), item_name, equation_name, equation, pre=server.prefix))
+                        else:
+                            item.equations[equation_name] = equation
+                            self.say(message, "edited equation {} in {}".format(equation_name.capitalize(), item.short_desc))
+                            server.save()
+                    elif command == 'desc':  # CHange Description
+                        if eq is None:
+                            self.say(message, "{} doesn't exists, use `{pre}item {} add {} {}` to add that equation".format(
+                                equation_name.capitalize(), item_name, equation_name, equation, pre=server.prefix))
+                        else:
+                            item.eq_desc[equation_name] = equation
+                            self.say(message, "Changed {}'s description for {}".format(item.short_desc, equation_name))
+                            server.save()
+
+                else:
+                    self.say(message, "You don't have permission to change that item.")
+            else:
+                self.say(message, "I couldn't find `{}` did you spell it right?".format(item_name))
         
         return message
 
@@ -195,11 +241,13 @@ class Items:
         - items:                                 lists all the items
         - items add <item>:                      adds a new item
         - items del <item>:                      deletes an item
+        - items desc <item> <desc>:              Sets a description to an item
 
         - items <item>:                          lists item equations
         - items <item> add <name> <equation>:    adds a new equation
         - items <item> del <name>:               deletes an equation
         - items <item> edit <name> <equation>:   edits an item equation
+        - items <item> desc <name> <desc>:       Sets a description to an equation
         - items <item> <name> [0] [1] ...        calculates an item equation
 
         item can either be the item's name (`sword`), name and id (`sword:5`), or just id (`:5`)
@@ -233,9 +281,11 @@ class Items:
         usages = dict(
             add_item=(server.prefix + 'items add <item>'),
             del_item=(server.prefix + 'items del <item>'),
+            desc_item=(server.prefix + 'items desc <item> <description>'),
             item_add=(server.prefix + 'items <item> add <name> <equation>'),
             item_del=(server.prefix + 'items <item> del <name>'),
             item_edit=(server.prefix + 'items <item> edit <name> <equation>'),
+            item_desc=(server.prefix + 'items <item> desc <name> <desc>'),
             item_name=(server.prefix + 'items <item> <name> [0] [1] ...')
         )
 
@@ -250,9 +300,17 @@ class Items:
                 self.say(message, 'There are no items.')
                 await self.say_message(message)
                 return
-            items = '\n'.join([i.short_desc for i in server.items])
+
+            all_items = server.items
+            your_items = [item for item in all_items if item.creator.id == ctx.message.author.id]
+            other_items = [item for item in all_items if item not in your_items]
+
             self.say(message, 'here is a list of all the items:')
-            self.say(message, '```\n{}\n```'.format(items))
+            self.say(message, '```\nYour Items:\n' + '-' * 10)
+            self.say(message, '\n'.join([i.short_desc for i in your_items]))
+            self.say(message, '\nOther Items:\n' + '-' * 10)
+            self.say(message, '\n'.join([i.short_desc for i in other_items]))
+            self.say(message, '```')
             await self.say_message(message)
             return
         
@@ -260,7 +318,7 @@ class Items:
             params = params[0]
 
             # Check for not enough arguments
-            if params in ['add', 'del']:
+            if params in ['add', 'del', 'desc']:
                 self.say(message, usages[params + '_item'])
                 await self.say_message(message)
                 return
@@ -278,12 +336,12 @@ class Items:
         if len(params) is 2:
             
             # check for not enough arguments
-            if params[1] in ['add', 'del', 'edit']:
+            if params[1] in ['add', 'del', 'edit', 'desc']:
                 self.say(message, usages['item_' + params[1]])
                 await self.say_message(message)
                 return
             
-            if params[0] in ['add', 'del']:
+            if params[0] in ['add', 'del', 'desc']:
                 message.extend(await self.items_manipulate(ctx, server, params[0], params[1]))
             else:
                 await self.roll(ctx, server, params[0], params[1])
@@ -294,14 +352,17 @@ class Items:
         if len(params) is 3:
 
             # Check for not enough arguments
-            if params[1] in ['add', 'edit']:
+            if params[1] in ['add', 'edit', 'desc']:
                 self.say(message, usages['item_' + params[1]])
                 await self.say_message(message)
                 return
+            
         
         # Check if these commands are valid
-        if params[1] in ['add', 'edit', 'del']:
-            message.extend(await self.items_edit(ctx, server, params[1], params[0], params[2], params[3:]))
+        if params[1] in ['add', 'edit', 'del', 'desc']:
+            message.extend(await self.items_edit(ctx, server, params[1], params[0], params[2], ' '.join(params[3:])))
+        elif params[0] == 'desc':
+            message.extend(await self.items_manipulate(ctx, server, params[0], params[1], ' '.join(params[2:])))
         else:
             await self.roll(ctx, server, params[0], params[1], *params[2:])
 

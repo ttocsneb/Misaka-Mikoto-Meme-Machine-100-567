@@ -1,27 +1,5 @@
 from marshmallow import Schema, fields, post_load
 
-
-class Item(object):
-    def __init__(self, name, id=None, equations=None):
-        self.id = id
-        self.name = name
-        if equations is None:
-            equations = dict()
-        self.equations = equations
-    
-    @property
-    def description(self):
-        equations = "\n".join([str(key) + ": " + str(eq) for key, eq in self.equations.items()])
-        return "{}:{}\n{}\n{}".format(self.name.capitalize(), self.id, "-" * 10, equations)
-    
-    @property
-    def short_desc(self):
-        return self.name.capitalize() + ':' + str(self.id)
-
-    def __repr__(self):
-        return '<Item(id={self.id},name={self.name})>'.format(self=self)
-
-
 class User(object):
     def __init__(self, id, stats=None):
         self.id = id
@@ -35,6 +13,41 @@ class User(object):
     
     def __repr__(self):
         return '<User(id={self.id})>'.format(self=self)
+
+
+class Item(object):
+    def __init__(self, name, id=None, equations=None, creator:User=None, desc=None, eq_desc=None):
+        self.id = id
+        self.name = name
+        self.creator = creator
+        self.desc = desc
+        if eq_desc is None:
+            eq_desc = dict()
+        self.eq_desc = eq_desc
+        if equations is None:
+            equations = dict()
+        self.equations = equations
+    
+    @property
+    def short_desc(self):
+        name = self.name.capitalize() + ':' + str(self.id)
+        if self.desc is not None:
+            name += ' ({})'.format(self.desc.capitalize())
+        return name
+
+    @property
+    def description(self):
+        equations = "\n".join(
+            ["{}{}: {}".format(
+                key,
+                ' ({})'.format(self.eq_desc[key].capitalize()) if self.eq_desc.get(key) is not None else '',
+                eq)
+            for key, eq in self.equations.items()]
+        )
+        return "{}\n{}\n{}".format(self.short_desc, "-" * 10, equations)
+
+    def __repr__(self):
+        return '<Item(id={self.id},name={self.name})>'.format(self=self)
 
 
 class Server(object):
@@ -152,16 +165,6 @@ class Server(object):
         return '<Server(id={self.id})>'.format(self=self)
 
 
-class ItemSchema(Schema):
-    id = fields.Int()
-    name = fields.Str()
-    equations = fields.Dict()
-
-    @post_load
-    def make_item(self, data):
-        return Item(**data)
-
-
 class UserSchema(Schema):
     id = fields.Str()
     stats = fields.Dict()
@@ -169,6 +172,20 @@ class UserSchema(Schema):
     @post_load
     def make_user(self, data):
         return User(**data)
+
+
+class ItemSchema(Schema):
+    id = fields.Int()
+    name = fields.Str()
+    equations = fields.Dict()
+    creator = fields.Nested(UserSchema, only=['id'])
+
+    desc = fields.Str(allow_none=True)
+    eq_desc = fields.Dict()
+
+    @post_load
+    def make_item(self, data):
+        return Item(**data)
 
 
 class ServerSchema(Schema):

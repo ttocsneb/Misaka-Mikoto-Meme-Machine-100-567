@@ -21,7 +21,14 @@ class Db:
         db_name = os.path.splitext(os.path.basename(file))[0]
 
         schema = schemas.ServerSchema()
-        self.database[db_name] = schema.load(db).data
+        data = schema.load(db)
+        if len(data.errors) > 0:
+            self._logger.error("Unhandled errors while loading database:")
+            for error, err_msg in data.errors.items():
+                self._logger.error("%s: %s", error, err_msg)
+            self._logger.error("Aborting load of %s", file)
+        else:
+            self.database[db_name] = data.data
     
     def load(self, name):
         db_dir = config.config.db_file
@@ -46,10 +53,12 @@ class Db:
     
     def _dump(self, path, name):
         schema = schemas.ServerSchema()
-        db = schema.dump(self.database[name]).data
+        db = schema.dump(self.database[name])
+
+        data = db.data
 
         with open(os.path.join(path, name + '.db'), 'w') as f:
-            json.dump(db, f)
+            json.dump(data, f)
     
     def dump(self, name):
         db_dir = config.config.db_file
