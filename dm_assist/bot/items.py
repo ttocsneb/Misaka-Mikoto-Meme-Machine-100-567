@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import re
 
 from discord.ext import commands
 
@@ -13,6 +14,7 @@ class Items:
     def __init__(self, bot):
         self.bot = bot
         self._logger = logging.getLogger(__name__)
+        self._item_regex = re.compile(r"([\S]+(?=:)|(?<=:)[\d]+|[^:\s]+|(?<!\S)(?=:))")
     
     @staticmethod
     def say(messages, string):
@@ -25,10 +27,8 @@ class Items:
             await self.bot.say(message)
 
     def get_item(self, message, server, name: str) -> schemas.Item:
-
-        import re
         # Seperate the name from the id with support for emojis
-        item_name = re.findall(r"([\S]+(?=:)|(?<=:)[\d]+|[^:\s]+|(?<!\S)(?=:))", name)
+        item_name = re.findall(self._item_regex, name)
 
         if len(item_name) > 1:
             try:
@@ -236,7 +236,7 @@ class Items:
     @commands.command(pass_context=True)
     async def items(self, ctx: commands.Context, *params):
         """
-        manipulate the server's items.  say `help items` for more details
+        manipulate or roll the server's items.  say `help items` for more details
 
         - items:                                 lists all the items
         - items add <item>:                      adds a new item

@@ -17,7 +17,7 @@ class Misc:
         self.bot = bot
         self._logger = logging.getLogger(__name__)
 
-    @commands.command(pass_context=True)
+    @commands.command(pass_context=True, hidden=True)
     async def headpat(self, ctx):
         '''Usage: don't.'''
         if ctx.message.author.id in config.config.mods:
@@ -28,7 +28,7 @@ class Misc:
         else:
             await self.bot.say(util.get_random_index(config.lines.dumb))
 
-    @commands.command(pass_context=True)
+    @commands.command(pass_context=True, hidden=True)
     async def ping(self, ctx):
         '''Pings the bot to check that it hasn't died or something'''
         self._logger.info(ctx.message.author.id + " pinged")

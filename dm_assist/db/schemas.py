@@ -1,3 +1,4 @@
+import collections
 from marshmallow import Schema, fields, post_load
 
 class User(object):
@@ -50,8 +51,107 @@ class Item(object):
         return '<Item(id={self.id},name={self.name})>'.format(self=self)
 
 
+class Percentile(object):
+    def __init__(self, weight:int, value):
+        self.weight = int(max(1, weight))
+        self.value = value
+
+
+class Table(collections.Sequence):
+    def __init__(self, name: str, id: int = None, desc = None, percentiles: list = list(), creator: User = None, hidden: bool = False):
+        self.name = name
+        self.id = id
+        self.desc = desc
+        if percentiles is None:
+            percentiles = list()
+        self.percentiles = percentiles
+        self.creator = creator
+        self.hidden = hidden
+    
+    def get_roll_sides(self):
+        """
+        Get the sides of dice that will be used for this table.
+
+        Since the sides will almost allways be larger than the number of items,
+        if a roll is larger than the size, then a reroll must be made.
+        """
+
+        # These are all values that 
+        sides = (1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 24, 30, 40, 60, 100, 120)
+        size = len(self)
+
+        def iterate():
+            for s in sides:
+                yield s
+            import itertools
+            for i in itertools.count(start=3):
+                yield 10 ** i
+
+        for side in iterate():
+            if size <= side:
+                return side
+
+    def print_all_percentiles(self):
+        """
+        Get a string of all the items in this table
+        """
+        total = 1
+
+        percentile = list()
+
+        max_width = 0
+
+        for perc in self.percentiles:
+            if perc.weight is 1:
+                string = str(total)
+            else:
+                string = str(total) + "-" + str(total + perc.weight - 1)
+            total += perc.weight
+            percentile.append((string, perc.value))
+            max_width = max(max_width, len(string))
+        
+        return '\n'.join(['{0: <{width}}: {1}'.format(*p, width=max_width) for p in percentile])
+    
+    def print_name(self):
+        desc = ' ({})'.format(self.desc) if self.desc is not None else ''
+        return '{}:{}'.format(self.name, self.id) + desc
+    
+    def __len__(self):
+        return sum([p.weight for p in self.percentiles])
+
+    def __getitem__(self, index):
+        if index < 0:
+            return self[len(self) - index]
+        total = 0
+        for i in self.percentiles:
+            total += i.weight
+            if index < total:
+                return i
+        raise IndexError
+    
+    def __iter__(self):
+        return TableIterator(self)
+
+
+class TableIterator(collections.Iterator):
+    def __init__(self, table:Table):
+        self.table = table
+        self.index = 0
+        self.total = 0
+    
+    def __next__(self):
+        try:
+            value = self.table.percentiles[self.index]
+            if self.index >= self.total + value.weight:
+                self.index += 1
+                value = self.table.percentiles[self.index]
+            return value
+        except IndexError:
+            raise StopIteration
+
+
 class Server(object):
-    def __init__(self, id, prefix, items=None, users=None):
+    def __init__(self, id, prefix, items=None, users=None, tables=None):
         self.id = id
         self.prefix = prefix
 
@@ -62,7 +162,35 @@ class Server(object):
         if users is None:
             users = list()
         self.users = users
+
+        if tables is None:
+            tables = list()
+        self.tables = tables
     
+    def table(self, id):
+        for table in self.tables:
+            if table.id is id:
+                return table
+        raise KeyError
+
+    def table_name(self, name):
+        for table in self.tables:
+            if table.name == name:
+                return table
+        raise KeyError
+    
+    def get_table(self, id, default=None):
+        try:
+            return self.table(id)
+        except KeyError:
+            return default
+    
+    def get_table_name(self, name, default=None):
+        try:
+            return self.table_name(name)
+        except KeyError:
+            return default
+
     def item(self, id):
         """
         Get an item with the id
@@ -117,6 +245,18 @@ class Server(object):
         item.id = new_id + 1
 
         self.items.append(item)
+    
+    def add_table(self, table: Table):
+        """
+        Add a table to the server
+
+        The id is automatically generated
+        """
+
+        ids = [0] + [t.id for t in self.tables]
+        table.id = max(ids) + 1
+
+        self.tables.append(table)
 
     def user(self, id):
         """
@@ -188,12 +328,37 @@ class ItemSchema(Schema):
         return Item(**data)
 
 
+class PercSchema(Schema):
+    weight = fields.Int()
+
+    value = fields.Str()
+
+    @post_load
+    def make_Perc(self, data):
+        return Percentile(**data)
+
+
+class TableSchema(Schema):
+    id = fields.Int()
+    name = fields.Str()
+    desc = fields.Str(allow_none=True)
+    creator = fields.Nested(UserSchema, only=["id"])
+    hidden = fields.Bool()
+
+    percentiles = fields.Nested(PercSchema, many=True)
+
+    @post_load
+    def make_table(self, data):
+        return Table(**data)
+
+
 class ServerSchema(Schema):
     id = fields.Str()
     prefix = fields.Str()
 
     items = fields.Nested(ItemSchema, many=True)
     users = fields.Nested(UserSchema, many=True)
+    tables = fields.Nested(TableSchema, many=True)
 
     @post_load
     def make_server(self, data):
