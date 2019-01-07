@@ -1,4 +1,5 @@
 import logging
+import asyncio
 import re
 
 from discord.ext import commands
@@ -85,12 +86,9 @@ class Tables:
 
         return [(parse(l), l[1]) for l in reader]
 
-    @commands.group(pass_context=True)
-    async def tables(self, ctx: commands.Context):
-        """
-        Shows a list of all the tables
-        """
-
+    # Tables
+    
+    async def show_all_tables(self, ctx: commands.Context):
         if ctx.invoked_subcommand is not None:
             return
 
@@ -111,11 +109,19 @@ class Tables:
 
         self.say(message, 'here is a list of all the tables:')
         self.say(message, '```\nYour Tables:\n' + '-' * 10)
-        self.say(message, '\n#'.join([i.print_name() for i in your_tables]))
+        self.say(message, '\n'.join([i.print_name() for i in your_tables]))
         self.say(message, '\nOther Tables:\n' + '-' * 10)
-        self.say(message, '\n@'.join([i.print_name() for i in other_tables]))
+        self.say(message, '\n'.join([i.print_name() for i in other_tables]))
         self.say(message, '```')
         await self.say_message(message)
+
+
+    @commands.group(pass_context=True)
+    async def tables(self, ctx: commands.Context):
+        """
+        Create or delete tables
+        """
+        await self.show_all_tables(ctx)
     
     @tables.command(pass_context=True, usage="<table> [items]")
     async def add(self, ctx, table_name: str, *, items=None):
@@ -229,21 +235,107 @@ class Tables:
                 hidden = hide[0].lower()
 
                 # Check if the first character is true, false, yes, no, 1, 0
-                if hidden not in b'tfyn01':
+                if hidden not in 'tfyn01':
                     self.say(message, "You must say yes or no")
                 else:
                     # Convert the string into a bool
-                    table.hidden = hidden in b'ty1'
+                    table.hidden = hidden in 'ty1'
                     server.save()
                     self.say(message, "Changed {} to be {}".format(table.print_name(), "secret" if table.hidden else "public"))
             else:
                 self.say(message, "You can't do that, you don't have the permissions")
 
+        await self.say_message(message)
+    # tab
 
+    @commands.group(pass_context=True)
+    async def tab(self, ctx: commands.Context):
+        """
+        Roll or modify a table
+        """
+        # If there were no arguments, list the tables
+        await self.show_all_tables(ctx)
 
+    @tab.command(pass_context=True, usage='<table>')
+    async def show(self, ctx: commands.Context, table_name: str):
+        """
+        Show all the items in a table.
+        """
 
-# - table show <table>:                  Print all the possible items in a table
-# - table roll <table> [value]:          Rolls an item on the table
+        message = list()
+
+        server = self.get_server(ctx)
+
+        table = self.get_table(message, server, table_name.lower())
+
+        if table is not None:
+            self.say(message, table.print_name() + ' `(1-{} [1d{}])`'.format(len(table), table.get_roll_sides()))
+
+            # Don't display the contents of the table if it is hidden and the user is not authorized
+            if not table.hidden or self.check_permissions(ctx, table):
+                self.say(message, '```')
+                self.say(message, table.print_all_percentiles())
+                self.say(message, '```')
+
+                if table.hidden:
+                    await self.bot.send_message(ctx.message.author, '\n'.join(message))
+                    return
+            else:
+                self.say(message, "```This table is hidden, you aren't allowed to see all the items inside```")
+
+        await self.say_message(message)
+    
+    @tab.command(pass_context=True, usage='<table> [value]')
+    async def roll(self, ctx: commands.Context, table_name: str, value=None):
+        """
+        Roll a value for the table, if you rolled a value, you may enter the value you rolled.
+        """
+
+        message = list()
+
+        server = self.get_server(ctx)
+
+        table = self.get_table(message, server, table_name.lower())
+
+        if table is not None:
+            max_val = len(table)
+            # Validate the entered number
+            if value is not None:
+                fail = False
+                try:
+                    value = int(value)
+                    if value > max_val or value < 1:
+                        self.say(message, 'The number should be in the range `(1-{})`'.format(max_val))
+                        fail = True
+                except ValueError:
+                    self.say(message, 'You must enter a number!')
+                    fail = True
+                if fail:
+                    await self.say_message(message)
+                    return
+            else:  # Generate a random number
+                dice = table.get_roll_sides()
+                util.dice.logging_enabled = True
+                while True:
+                    value = util.dice.roll(dice)
+                    if value <= max_val:
+                        break
+                util.dice.logging_enabled = False
+                dice = util.dice.rolled_dice
+                from .dice import Dice
+                self.say(message, Dice.print_dice(dice))
+            
+            perc = table[value - 1]
+
+            self.say(message, '**{}**'.format(value))
+            self.say(message, perc.value)
+        
+        await self.say_message(message)
+
+        
+        if util.dice.low:
+            asyncio.ensure_future(util.dice.load_random_buffer())
+
 # - table add <table> <items>:           Add items to the table
 # - table insert <table> <index> <items>:Insert items into the table
 # - table del <table> <index>:           Delete an item in the table
