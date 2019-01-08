@@ -56,6 +56,30 @@ class Calculator:
         'ceil': lambda a: math.floor(a)
     }
 
+    def __init__(self):
+        self._strip_regex = re.compile(r"\s+")
+        self._parse_regex = re.compile(r"((^|(?<=[^\w)]))[-][\d.]+|[\d.]+|[a-z]+|[\W])")
+        # _parse_regex info
+        # 
+        # (^|(?<=[^\w)]))[-][\d.]+
+        # Negative Numbers
+        #   - (^|(?<=[^\w)]))
+        #     Assert that the next token will be unary
+        #   - [-]
+        #     Catch operator
+        #   - [\d.]+
+        #     Catch Decimal number
+        # 
+        # [\d.]+
+        # Decimal Numbers
+        # 
+        # [a-z]+
+        # Functions
+        # 
+        # [\W]
+        # Operators
+
+
     def _load_equation(self, data: list) -> list:
         """
         Parse an equation to be calculated easier by a computer using the
@@ -172,13 +196,8 @@ class Calculator:
         will be thrown.
         """
         # parse the string into a list of operators and operands.
-
-        # (?|?|?) regex or
-        # [^\w.,\s] matches any single character that is not a word, number, _, or whitespace
-        # [\d.]+ matches any number
-        # [a-z]+ matches any lower case word
-        # goto https://regex101.com/ for help creating your own regexes.
-        equation = re.findall(r"([^\w.\s]|[\d.]+|[a-z]+)", string.lower())
+        stripped = re.sub(self._strip_regex, "", string.lower())
+        equation = [r[0] for r in re.findall(self._parse_regex, stripped)]
 
         # Parse the equation using the Shunting Yard Algorithm
         equation = self._load_equation(equation)

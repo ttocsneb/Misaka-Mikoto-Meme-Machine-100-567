@@ -66,18 +66,39 @@ class Dice:
     async def send(self, messages):
         await self.bot.say('\n'.join(messages))
 
-    @commands.command(pass_context=True)
-    async def calc(self, ctx:commands.Context, *, equation: str):
+    @commands.command(pass_context=True, aliases=['calc'])
+    async def roll(self, ctx:commands.Context, *, equation: str):
         """
         Calculates an equation.
 
-        The allowed operands are as follows:
+        The allowed operators are as follows:
 
-        +, -, *, /, ^, %
+        +, -, *, /, ^, %, d
 
-        You can include other commands in your equation such as:
+        (Note: the d operator is used for dice: 2d20 rolls 2, 20 sided dice)
 
-        xdy, adv(sides), dis(sides), top(times, sides, top_dice), bot(times, sides, top_dice), round(x)
+        You can include all other Dice commands in your equation:
+
+        * adv(sides)
+        * dis(sides)
+        * top(num, sides, top_dice)
+        * bot(num, sides, bot_dice)
+
+        Other mathematical functions are also allowed:
+
+        * round(a)      round to the nearest whole number
+        * floor(a)      round down
+        * ceil(a)       round up
+        * max(a, b)     return the highest number of the two
+        * min(a, b)     return the lowest number of the two
+
+        You may also use your stats as variables.  A variable
+        is surrounded by {}, so if you have a stat called 'level',
+        you could use it in your equation with: {level}
+
+        Example equation:
+
+          1d20 + floor({level} / 2)
         """
 
         message = list()
@@ -111,63 +132,6 @@ class Dice:
             self.say(message, self.print_dice_one_liner(dice + [(value, "sum")]))
 
         self.say(message, "According to my notes, the answer is: **{}**".format(value))
-        await self.send(message)
-
-        if util.dice.low:
-            asyncio.ensure_future(util.dice.load_random_buffer())
-
-
-    @commands.command()
-    async def roll(self, roll: str=None):
-        '''Rolls X dice with Y sides. Usage: roll xdy'''
-
-        message = list()
-
-        if roll is None:
-            await self.bot.say("Usage: roll xdy\n(roll 1d20)")
-            return
-
-        try:
-            roll = roll.lower().split("d")
-
-            roll = [int(r) for r in roll]
-
-            util.dice.logging_enabled = True
-            data = util.dice.roll_sum(roll[1], roll[0])
-            util.dice.logging_enabled = False
-        except IndexError:
-            await self.bot.say("I can't understand what you're trying to say, the format is `<times>d<sides>`")
-            return
-        except ValueError:
-            await self.bot.say("You're suppost to use numbers!")
-            return
-
-        dice = util.dice.rolled_dice
-        if len(dice) > 1:
-            self.say(message, self.print_dice(dice))
-
-        total = data[0]
-        rolls = roll[0]
-
-        # + " with " + str(TotalCrits) + " crits!")
-        if rolls is 1:
-            self.say(message, total)
-        else:
-            msg = str(total)
-
-            if data[1] > 0:
-                msg += " with {} crits".format(data[1])
-
-            if data[2] > 0:
-                msg += "{} {} fails".format(
-                    " with" if data[1] is 0 else ", and",
-                    data[2])
-            self.say(message, msg)
-
-        one_liner = self.print_dice_one_liner(dice + [(total, roll[0] * roll[1])])
-        if one_liner is not None:
-            self.say(message, one_liner)
-        
         await self.send(message)
 
         if util.dice.low:
