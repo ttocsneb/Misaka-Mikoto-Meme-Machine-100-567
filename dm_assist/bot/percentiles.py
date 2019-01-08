@@ -115,20 +115,12 @@ class Tables:
         self.say(message, '```')
         await self.say_message(message)
 
-
     @commands.group(pass_context=True)
     async def tables(self, ctx: commands.Context):
         """
         Create or delete tables
-        """
-        await self.show_all_tables(ctx)
-    
-    @tables.command(pass_context=True, usage="<table> [items]")
-    async def add(self, ctx, table_name: str, *, items=None):
-        """
-        Create a new table
-
-        The optional items are can be in any CSV format.
+        
+        When adding items to tables, use the following format
 
         I recommend using this google sheet to help create
         a table: https://docs.google.com/spreadsheets/d/1A5Yo9XGMekLBUP8MYf-I-ZilmH-A1rbPd6SfUJZRCdU/edit?usp=sharing
@@ -145,19 +137,20 @@ class Tables:
 
         the csv format would become:
         
-        2	Armorer
-        2	Bowyer/fletcher
-        6	Farmer/gardener
-        4	Fisher (netting)
+        2:Armorer
+        2:Bowyer/fletcher
+        6:Farmer/gardener
+        4:Fisher (netting)
 
-
-        this is from excel, which is tab seperated.
-        other formats are also accepted such as comma seperated:
-
-        2,Armorer
-        2,Bowyer/fletcher
-        6,Farmer/gardener
-        4,Fisher (netting)
+        Excel uses tab seperated values which discord does not particularly like.
+        All other formats should work.
+        """
+        await self.show_all_tables(ctx)
+    
+    @tables.command(pass_context=True, usage="<table> [item(s)]")
+    async def add(self, ctx, table_name: str, *, items=None):
+        """
+        Create a new table
         """
 
         message = list()
@@ -246,12 +239,38 @@ class Tables:
                 self.say(message, "You can't do that, you don't have the permissions")
 
         await self.say_message(message)
+    
     # tab
 
-    @commands.group(pass_context=True)
+    @commands.group(pass_context=True, aliases=['table'])
     async def tab(self, ctx: commands.Context):
         """
         Roll or modify a table
+        
+        When adding items to tables, use the following format
+
+        I recommend using this google sheet to help create
+        a table: https://docs.google.com/spreadsheets/d/1A5Yo9XGMekLBUP8MYf-I-ZilmH-A1rbPd6SfUJZRCdU/edit?usp=sharing
+
+        The format of the cells are as follows:
+        
+        | Weight |      Value       |
+        |--------|------------------|
+        |      2 | Armorer          |
+        |      2 | Bowyer/fletcher  |
+        |      6 | Farmer/gardener  |
+        |      4 | Fisher (netting) |
+
+
+        the csv format would become:
+        
+        2:Armorer
+        2:Bowyer/fletcher
+        6:Farmer/gardener
+        4:Fisher (netting)
+
+        Excel uses tab seperated values which discord does not particularly like.
+        All other formats should work.
         """
         # If there were no arguments, list the tables
         await self.show_all_tables(ctx)
@@ -273,13 +292,28 @@ class Tables:
 
             # Don't display the contents of the table if it is hidden and the user is not authorized
             if not table.hidden or self.check_permissions(ctx, table):
-                self.say(message, '```')
-                self.say(message, table.print_all_percentiles())
-                self.say(message, '```')
+                table_cont = list()
+                table_cont.extend(table.print_all_percentiles())
 
-                if table.hidden:
-                    await self.bot.send_message(ctx.message.author, '\n'.join(message))
-                    return
+                messages = list(message)
+
+                if len('\n'.join(table_cont + message)) > 2000 - 8:
+                    mess = list()
+                    for m in table_cont:
+                        mess.append(m)
+                        if len('\n'.join(mess)) > 2000 - 8:
+                            mess.pop()
+                            messages.append('```' + '\n'.join(mess) + '```')
+                            mess = [m]
+                    messages.append('```' + '\n'.join(mess) + '```')
+                    for m in messages:
+                        await self.bot.send_message(ctx.message.author, m)
+                    self.say(message, 'The list is too long, I sent it to you')
+                elif table.hidden:
+                    self.say(message, 'The list is hidden, I sent it to you to protect its privacy.')
+                    await self.bot.send_message(ctx.message.author, '\n'.join(table_cont))
+                else:
+                    message.append('```' + '\n'.join(table_cont) + '```')
             else:
                 self.say(message, "```This table is hidden, you aren't allowed to see all the items inside```")
 
@@ -336,8 +370,143 @@ class Tables:
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
 
-# - table add <table> <items>:           Add items to the table
-# - table insert <table> <index> <items>:Insert items into the table
-# - table del <table> <index>:           Delete an item in the table
-# - table edit <table> <index> <item>:   Change the content of the item
-# - table clear <table>:                 Delete all items in the table
+    @tab.command(pass_context=True, name='add', usage='<table> <item(s)>')
+    async def tab_add(self, ctx: commands.Context, table_name: str, *, items):
+        """
+        Add items to the table
+        """
+        message = list()
+
+        server = self.get_server(ctx)
+
+        table = self.get_table(message, server, table_name.lower())
+
+        if table is not None:
+            if self.check_permissions(ctx, table):
+                csv = self.parse_csv(message, items)
+                percs = [schemas.Percentile(*p) for p in csv]
+
+                table.percentiles.extend(percs)
+                server.save()
+                self.say(message, "Added items to " + table.print_name())
+            else:
+                self.say(message, "You don't have permission here")
+        
+        await self.say_message(message)
+
+    @tab.command(pass_context=True, usage='<table> <index> <item(s)>')
+    async def insert(self, ctx: commands.Context, table_name: str, index: int, *, items):
+        """
+        Insert items into the table at a given position
+        """
+
+        message = list()
+
+        server = self.get_server(ctx)
+
+        table = self.get_table(message, server, table_name.lower())
+
+
+        if table is not None:
+            if index < 1 or index > len(table):
+                self.say(message, "You can only insert items into `1-{}`".format(len(table)))
+                await self.say_message(message)
+                return
+
+            if self.check_permissions(ctx, table):
+                csv = self.parse_csv(message, items)
+                percs = [schemas.Percentile(*p) for p in csv]
+
+                # Insert the new items into the table
+                table[index-1:index-1] = percs
+
+                server.save()
+                self.say(message, "Added items to " + table.print_name())
+            else:
+                self.say(message, "You don't have permission here")
+        
+        await self.say_message(message)
+
+    @tab.command(pass_context=True, name='del', usage='<table> <index> [number]')
+    async def tab_del(self, ctx: commands.Context, table_name: str, index: int, num: int = 1):
+        """
+        Delete a (number of) item(s) from the table
+        """
+        message = list()
+
+        server = self.get_server(ctx)
+
+        table = self.get_table(message, server, table_name.lower())
+
+        if table is not None:
+            if self.check_permissions(ctx, table):
+                if index < 1 or index > len(table):
+                    self.say(message, "Index should be in the range of `1-{}`".format(len(table)))
+                elif num < 1:
+                    self.say(message, "You must delete at least 1 item")
+                else:
+                    if num is 1:
+                        self.say(message, "Deleted item from " + table.print_name())
+                    else:
+                        self.say(message, "Deleted {} items from {}".format(num, table.print_name()))
+
+                    start_index = table.percentiles.index(table[index-1])
+                    end_index = min(start_index + num, len(table.percentiles))
+                    del table.percentiles[slice(start_index, end_index)]
+
+                    server.save()
+            else:
+                self.say(message, "You don't have the permissions")
+        
+        await self.say_message(message)
+
+    @tab.command(pass_context=True, usage='<table> <index> <item(s)>')
+    async def replace(self, ctx: commands.Context, table_name: str, index: int, *, items):
+        """
+        Replace the content of the item(s) starting at the given index
+        """
+        message = list()
+
+        server = self.get_server(ctx)
+
+        table = self.get_table(message, server, table_name.lower())
+
+        if table is not None:
+            if self.check_permissions(ctx, table):
+                if index < 1 or index > len(table):
+                    self.say(message, "The range is `1-{}`".format(len(table)))
+                else:
+                    csv = self.parse_csv(message, items)
+                    percs = [schemas.Percentile(*p) for p in csv]
+
+                    start_index = table.percentiles.index(table[index])
+                    end_index = start_index + len(percs)
+
+                    table.percentiles[slice(start_index,end_index)] = percs
+                    server.save()
+
+                    self.say(message, "Replaced {} item{} in {}".format(len(percs), 's' if len(percs) > 1 else '', table.print_name()))
+            else:
+                self.say(message, "You can't do that, you don't have my permission")
+
+        await self.say_message(message)
+
+    @tab.command(pass_context=True, usage='<table>')
+    async def clear(self, ctx: commands.Context, table_name: str):
+        """
+        Delete all the items in the table
+        """
+        message = list()
+
+        server = self.get_server(ctx)
+
+        table = self.get_table(message, server, table_name.lower())
+
+        if table is not None:
+            if self.check_permissions(ctx, table):
+                table.percentiles.clear()
+                self.say(message, "Removed all items from " + table.print_name())
+            else:
+                self.say(message, "You don't have permission to do this.")
+
+        await self.say_message(message)

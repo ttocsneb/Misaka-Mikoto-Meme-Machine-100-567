@@ -57,7 +57,7 @@ class Percentile(object):
         self.value = value
 
 
-class Table(collections.Sequence):
+class Table(collections.MutableSequence):
     def __init__(self, name: str, id: int = None, desc = None, percentiles: list = list(), creator: User = None, hidden: bool = False):
         self.name = name
         self.id = id
@@ -110,7 +110,7 @@ class Table(collections.Sequence):
             percentile.append((string, perc.value))
             max_width = max(max_width, len(string))
         
-        return '\n'.join(['{0: <{width}}: {1}'.format(*p, width=max_width) for p in percentile])
+        return ['{0: >{width}}  {1}'.format(*p, width=max_width) for p in percentile]
     
     def print_name(self):
         desc = ' ({})'.format(self.desc) if self.desc is not None else ''
@@ -120,8 +120,14 @@ class Table(collections.Sequence):
         return sum([p.weight for p in self.percentiles])
 
     def __getitem__(self, index):
+        # Process Slices
+        if isinstance(index, slice):
+            return [self[i] for i in range(*index.indices(len(self)))]
+        # Process negative indecies
         if index < 0:
             return self[len(self) - index]
+        
+        # Get the item
         total = 0
         for i in self.percentiles:
             total += i.weight
@@ -131,6 +137,31 @@ class Table(collections.Sequence):
     
     def __iter__(self):
         return TableIterator(self)
+    
+    def __setitem__(self, index, value):
+        # Process Slices
+        if isinstance(index, slice):
+            o_start, o_stop, o_step = index.indices(len(self))
+            start = self.percentiles.index(self[o_start])
+            stop = self.percentiles.index(self[o_stop])
+            self.percentiles[slice(start, stop, o_step)] = value
+            return
+
+        self.percentiles[self.percentiles.index(self[index])] = value
+
+    def insert(self, index, value):
+        self.percentiles.insert(self.percentiles.index(self[index]))
+    
+    def __delitem__(self, index):
+        # Process Slices
+        if isinstance(index, slice):
+            o_start, o_stop, o_step = index.indices(len(self))
+            start = self.percentiles.index(self[o_start])
+            stop = self.percentiles.index(self[o_stop])
+            del self.percentiles[slice(start, stop, o_step)]
+            return
+
+        self.percentiles.remove(self[index])
 
 
 class TableIterator(collections.Iterator):
