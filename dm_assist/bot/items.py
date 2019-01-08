@@ -185,27 +185,38 @@ class Items:
                 await self.say_message(message)
                 return
 
+        check_vars = re.compile(r"{(.*?)}")
+
         # Parse any variables in the equation first.
-        try:
-            _params = list()
-            # Paramters can also be equations, but can't contains spaces
-            for param in params:
-                param = param.format(**user.stats)
+        loop = 0
+        while len(re.findall(check_vars, ''.join(params) + equation)) > 0:
+            loop += 1
+            try:
+                _params = list()
+                # Paramters can also be equations, but can't contains spaces
+                for param in params:
+                    param = param.format(**user.stats)
+                    try:
+                        param = util.calculator.parse_equation(param)
+                    except util.BadEquation as be:
+                        self.say(message, str(be))
+                        await self.say_message(message)
+                        return
+                equation = equation.format(*params, **user.stats)
+            except:
                 try:
-                    param = util.calculator.parse_equation(param)
-                except util.BadEquation as be:
-                    self.say(message, str(be))
+                    raise
+                except KeyError as ke:
+                    self.say(message, "Missing variable " + str(ke))
+                except IndexError:
+                    self.say(message, "Not enough parameters")
+                finally:
                     await self.say_message(message)
                     return
-            equation = equation.format(*params, **user.stats)
-        except:
-            try:
-                raise
-            except KeyError as ke:
-                self.say(message, "Missing variable " + str(ke))
-            except IndexError:
-                self.say(message, "Not enough parameters")
-            finally:
+            
+            if loop >= 20:
+                self.say(message, "Detected a circular dependancy in your variables.")
+                self.say(message, "I can't calculate your equation because of this, you will need to fix the issue before you try again.")
                 await self.say_message(message)
                 return
 

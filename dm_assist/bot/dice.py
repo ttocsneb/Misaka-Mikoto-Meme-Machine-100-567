@@ -1,5 +1,10 @@
 import asyncio
 import math
+import re
+import logging
+
+_logger = logging.getLogger(__name__)
+
 from discord.ext import commands
 
 from ..config import config
@@ -12,6 +17,7 @@ class Dice:
 
     def __init__(self, bot):
         self.bot = bot
+        self._check_vars = re.compile(r"{(.*?)}")
     
     @staticmethod
     def print_dice(dice):
@@ -110,12 +116,21 @@ class Dice:
             user = schemas.User(ctx.message.author.id)
             server.add_user(user)
             server.save()
-        try:
-            equation = equation.format(**user.stats)
-        except KeyError as ke:
-            self.say(message, "I couldn't find the variable " + str(ke))
-            await self.send(message)
-            return
+
+        loop = 0
+        while len(re.findall(self._check_vars, equation)) > 0:
+            loop += 1
+            try:
+                equation = equation.format(**user.stats)
+            except KeyError as ke:
+                self.say(message, "I couldn't find the variable " + str(ke))
+                await self.send(message)
+                return
+            if loop >= 20:
+                self.say(message, "Detected a circular dependancy in your variables.")
+                self.say(message, "I can't calculate your equation because of this, you will need to fix the issue before you try again.")
+                await self.send(message)
+                return
 
         try:
             util.dice.logging_enabled = True
