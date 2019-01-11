@@ -3,6 +3,12 @@ import math
 
 from . import dice, BadEquation
 
+def isTrue(a):
+    """
+    Checks if a number is considered true
+    """
+    return a > 0
+
 
 class Calculator:
     """
@@ -17,12 +23,13 @@ class Calculator:
 
     # Lower numbers mean a lower precidence (it is less important)
     precidence = {
+        '<': 1, '>': 1, '=': 1, '<>': 1, '<=': 1, '>=': 1, 'or': 1, 'and': 1,
         '+': 2, '-': 2,
         '*': 3, '/': 3,
         '^':4, '%':4,
         'd': 5,
         'round': 6, 'max': 6, 'min': 6, 'floor': 6, 'ceil': 6,
-        'adv': 6, 'dis': 6, 'top': 6, 'bot': 6
+        'adv': 6, 'dis': 6, 'top': 6, 'bot': 6, 'if': 6
     }
     
     # A function by default has 2 arguments, if it does not, list the number required here.
@@ -33,17 +40,32 @@ class Calculator:
         'top': 3,
         'bot': 3,
         'floor': 1,
-        'ceil': 1
+        'ceil': 1,
+        'if': 3
     }
 
     # All the functions are defined here as lambdas.
     functions = {
+        # Basic functions
         '+': lambda a, b: a + b,
         '-': lambda a, b: a - b,
         '*': lambda a, b: a * b,
         '/': lambda a, b: a / b,
         '^': lambda a, b: a ** b,
         '%': lambda a, b: a % b,
+
+        # Boolean functions
+        '<':  lambda a, b: 1 if a < b else 0,
+        '<=': lambda a, b: 1 if a <= b else 0,
+        '>=': lambda a, b: 1 if a >= b else 0,
+        '>':  lambda a, b: 1 if a > b else 0,
+        '<>': lambda a, b: 1 if a != b else 0,
+        '=':  lambda a, b: 1 if a == b else 0,
+        'and': lambda a, b: 1 if isTrue(a) and isTrue(b) else 0,
+        'or': lambda a, b: 1 if isTrue(a) or isTrue(b) else 0,
+        'if': lambda a, b, c: b if isTrue(a) else c,
+
+        # Advanced Functions
         'd': lambda a, b: dice.roll_sum(round(b), round(a))[0],
         'adv': lambda a: dice.roll_top(round(a), 1, 2),
         'dis': lambda a: dice.roll_top(round(a), 1, 2, False),
@@ -58,7 +80,7 @@ class Calculator:
 
     def __init__(self):
         self._strip_regex = re.compile(r"\s+")
-        self._parse_regex = re.compile(r"((^|(?<=[^\w)]))[-][\d.]+|[\d.]+|[a-z]+|[\W])")
+        self._parse_regex = re.compile(r"((^|(?<=[^\d)]))[-][\d.]+|[\d.]+|[a-z]+|[<>=]+|[\W])")
         # _parse_regex info
         # 
         # (^|(?<=[^\w)]))[-][\d.]+
@@ -75,6 +97,9 @@ class Calculator:
         # 
         # [a-z]+
         # Functions
+        # 
+        # [<>=]+
+        # Boolean operators
         # 
         # [\W]
         # Operators

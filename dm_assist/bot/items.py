@@ -237,7 +237,7 @@ class Items:
             if one_liner is not None:
                 self.say(message, one_liner)
         
-        self.say(message, "You got a **{}**".format(value))
+        self.say(message, "**{}**".format(value))
         
         await self.say_message(message)
 

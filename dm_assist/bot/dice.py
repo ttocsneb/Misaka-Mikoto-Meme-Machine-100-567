@@ -146,7 +146,7 @@ class Dice:
             self.say(message, self.print_dice(dice))
             self.say(message, self.print_dice_one_liner(dice + [(value, "sum")]))
 
-        self.say(message, "According to my notes, the answer is: **{}**".format(value))
+        self.say(message, "**{}**".format(value))
         await self.send(message)
 
         if util.dice.low:
