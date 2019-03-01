@@ -10,7 +10,8 @@ with open('README.md', 'r') as fh:
 INSTALL_REQUIRES = [
       'discord.py',
       'ruamel.yaml',
-      'marshmallow'
+      'marshmallow',
+      'SQLAlchemy'
 ]
 
 
