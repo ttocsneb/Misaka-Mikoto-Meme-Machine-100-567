@@ -7,7 +7,9 @@ class Database:
         self._uri = uri
         self._engine = sqlalchemy.create_engine(uri, echo=True)
 
-        sql_schema.Base.create_all(self._engine)
+        sql_schema.Base.metadata.create_all(self._engine)
+
+        self._session = sqlalchemy.orm.sessionmaker(bind=self._engine)
 
     def createSession(self):
-        return sqlalchemy.orm.sessionmaker(bind=self._engine)
+        return self._session()

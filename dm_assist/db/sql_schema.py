@@ -16,7 +16,7 @@ class Stat(Base):
     value = Column(String())
 
     def __repr__(self):
-        return "'%s': '%s'" % (self.name, self.value)
+        return "'{}': '{}'".format(self.name, self.value)
 
 
 class Stats(collections.MutableMapping):
@@ -59,15 +59,15 @@ class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer(), primary_key=True)
-    stats = relationship("Stat", back_populates=True)
-    equations = relationship("Equation", back_populates=True)
-    tables = relationship("Table", back_populates=True)
+    stats = relationship("Stat")
+    equations = relationship("Equation", back_populates='creator')
+    tables = relationship("Table", back_populates='creator')
 
     def getStats(self):
         return Stats(self)
 
     def __repr__(self):
-        return "<User(id='%d')>" % (self.id)
+        return "<User(id='{}')>".format(self.id)
 
 
 class Equation(Base):
@@ -77,6 +77,7 @@ class Equation(Base):
     name = Column(String())
     equation = Column(String())
     creator_id = Column(Integer, ForeignKey("users.id"))
+    creator = relationship("User", back_populates='equations')
 
     desc = Column(String())
 
@@ -94,7 +95,7 @@ class Percentile(Base):
     value = Column(String())
 
     def __repr__(self):
-        return "<Percentile(weight=%d, value='%s')>" % (self.weight, self.value)
+        return "<Percentile(weight={}, value='{}')>".format(self.weight, self.value)
 
 
 class TableItems(collections.MutableSequence):
@@ -165,7 +166,7 @@ class Table(Base):
 
     id = Column(Integer(), primary_key=True)
     creator_id = Column(Integer(), ForeignKey('users.id'))
-    creator = relationship("User", back_populates=True)
+    creator = relationship("User", back_populates='tables')
 
     name = Column(String())
     desc = Column(String())
@@ -227,7 +228,7 @@ class Table(Base):
         return '{}:{}'.format(self.name, self.id) + desc
 
     def __repr__(self):
-        return "<Table(name='%s', desc='%s')>" % (self.name, self.desc)
+        return "<Table(name='{}', desc='{}')>".format(self.name, self.desc)
 
 
 class Data(Base):
@@ -244,4 +245,4 @@ class Data(Base):
         return self.current_id
 
     def __repr__(self):
-        return "<Data(prefix='%s')>" % self.prefix
+        return "<Data(prefix='{}')>".format(self.prefix)
