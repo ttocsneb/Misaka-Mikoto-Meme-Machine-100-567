@@ -1,84 +1,106 @@
 import os
-import json
-
-import logging
-
-from . import schemas
+import sqlalchemy
 
 from ..config import config
 
+from . import server, conf
 
-class Db:
+
+class Database:
+
+    def __init__(self, uri):
+        self._uri = uri
+        self._engine = sqlalchemy.create_engine(uri, echo=True)
+
+        self._session = sqlalchemy.orm.sessionmaker(bind=self._engine)
+
+    def createSession(self):
+        return self._session()
+
+
+class Server(Database):
+
+    def __init__(self, uri, id, prefix='!'):
+        super().__init__(uri)
+
+        server.Base.metadata.create_all(self._engine)
+
+        # Setup the data row
+        session = self.createSession()
+        if session.query(server.Data).first() is None:
+            data = server.Data(id=id, prefix=prefix, current_id=0)
+            session.add(data)
+            session.commit()
+
+    @staticmethod
+    def getData(session) -> server.Data:
+        return session.query(server.Data).first()
     
-    def __init__(self):
-        self.database = dict()
-        self._logger = logging.getLogger(__name__)
+    @staticmethod
+    def getUser(session, id, commit=True) -> server.User:
+        user = session.query(server.User).filter(server.User.id==id).first()
+        if user is None:
+            # Add user to server database
+            user = server.User(id=id)
+            session.add(user)
+            if commit:
+                session.commit()
+            
+            # Add user to servers database
+            servers = getServers()
+            serve_session = servers.createSession()
 
-    def _load(self, file):
-        db = None
-        with open(file, 'r') as f:
-            db = json.load(f)
-        db_name = os.path.splitext(os.path.basename(file))[0]
+            # Get the user, if it does not exist, create one
+            serve_user = serve_session.query(conf.User).filter(conf.User.id==id).first()
+            if serve_user is None:
+                serve_user = conf.User(id=id)
+            data = Server.getData(session)
 
-        schema = schemas.ServerSchema()
-        data = schema.load(db)
-        if len(data.errors) > 0:
-            self._logger.error("Unhandled errors while loading database:")
-            for error, err_msg in data.errors.items():
-                self._logger.error("%s: %s", error, err_msg)
-            self._logger.error("Aborting load of %s", file)
-        else:
-            self.database[db_name] = data.data
-    
-    def load(self, name):
-        db_dir = config.config.db_file
+            # Get the server, if it doesn't exist, create one (shouldn't happen though)
+            serve = serve_session.query(conf.Server).filter(conf.Server.id==data.id).first()
+            if serve is None:
+                serve = conf.Server(id=data.id, prefix=data.prefix)
 
-        self._logger.info("Loading database: %s", name)
+            # Add the user to the server.
+            serve.users.append(serve_user)
 
-        self._load(os.path.join(db_dir, name + '.db'))
-
-    def load_all(self):
-        self.database = dict()
-        db_dir = config.config.db_file
-
-        self._logger.info("Loading all databases")
+            # Don't check if commit is true, as this is a new session.
+            serve_session.commit()
         
-        if not os.path.exists(db_dir):
-            os.makedirs(db_dir)
-
-        db_files = os.listdir(db_dir)
-
-        for db in db_files:
-            self._load(os.path.join(db_dir, db))
-    
-    def _dump(self, path, name):
-        schema = schemas.ServerSchema()
-        db = schema.dump(self.database[name])
-
-        data = db.data
-
-        with open(os.path.join(path, name + '.db'), 'w') as f:
-            json.dump(data, f)
-    
-    def dump(self, name):
-        db_dir = config.config.db_file
-
-        self._logger.info("Dumping database: %s", name)
-
-        if not os.path.exists(db_dir):
-            os.makedirs(db_dir)
-        self._dump(db_dir, name)
-
-    def dump_all(self):
-        db_dir = config.config.db_file
-
-        self._logger.info("Dumping all databases")
-
-        if not os.path.exists(db_dir):
-            os.makedirs(db_dir)
-
-        for name in self.database.keys():
-            self._dump(db_dir, name)
+        return user
 
 
-db = Db()
+class Servers(Database):
+    def __init__(self, uri):
+        super().__init__(uri)
+
+        conf.Base.metadata.create_all(self._engine)
+
+
+if not os.path.exists(config.config.db_file):
+    os.makedirs(config.config.db_file)
+_servers = Servers('sqlite:///' + os.path.join(config.config.db_file, 'servers.db'))
+_dbs = dict()
+
+
+def getDb(id):
+    global _dbs
+    try:
+        return _dbs[id]
+    except KeyError:
+        file = os.path.join(config.config.db_file, str(id) + '.db')
+        db = Server('sqlite:///' + file, id, config.config.prefix)
+        _dbs[id] = Database('sqlite:///' + file)
+
+        # Add the new server to servers db
+        session = _servers.createSession()
+        if session.query(conf.Server).first() is None:
+            server = conf.Server(id=id, prefix=config.config.prefix)
+            session.add(server)
+            session.commit()
+
+        return db
+
+
+def getServers():
+    return _servers

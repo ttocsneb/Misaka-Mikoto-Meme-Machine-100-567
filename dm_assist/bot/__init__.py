@@ -20,18 +20,22 @@ class Bot:
         """
         Dynamically get a server's prefix
         """
+        session = db.getServers().createSession()
         if message.channel.type in [discord.ChannelType.private, discord.ChannelType.group]:
-            prefixes = [s.prefix for s in db.db.database.values()]
+            user = session.query(db.conf.User).filter(db.conf.User.id==message.message.author.id).first()
+            # Get all the prefixes from each server the user is a part of
+            prefixes = [s.prefix for s in user.servers]
             return prefixes + [commands.when_mentioned(bot, message)]
 
         sid = message.server.id
         try:
-            server = db.db.database[sid]
+            server = session.query(db.conf.Server).filter(db.conf.Server.id==sid).first()
         except KeyError:
             self._logger.info("Setting up database for new server: %s", sid)
-            server = db.schemas.Server(sid, conf.config.prefix)
-            db.db.database[sid] = server
-            db.db.dump(sid)
+            server = db.conf.Server(id=sid, prefix=conf.config.prefix)
+            session.add(server)
+            session.commit()
+            db.getDb(sid)
 
         # Add the optional @ mention
         return [server.prefix, commands.when_mentioned(bot, message)]
