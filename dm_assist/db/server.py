@@ -1,6 +1,7 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
+from sqlalchemy.ext.orderinglist import ordering_list
 
 import collections
 
@@ -90,7 +91,8 @@ class Percentile(Base):
 
     id = Column(Integer(), primary_key=True)
     table_id = Column(Integer(), ForeignKey('tables.id'))
-    
+    index = Column(Integer())
+
     weight = Column(Integer())
     value = Column(String())
 
@@ -172,7 +174,8 @@ class Table(Base):
     desc = Column(String())
     hidden = Column(Boolean())
 
-    percentiles = relationship("Percentile")
+    percentiles = relationship("Percentile", order_by='Percentile.index',
+                               collection_class=ordering_list('index'))
 
     def getItems(self):
         return TableItems(self)

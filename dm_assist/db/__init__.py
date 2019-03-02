@@ -76,6 +76,10 @@ class Servers(Database):
 
         conf.Base.metadata.create_all(self._engine)
 
+    @staticmethod
+    def getServer(session, id):
+        return session.query(conf.Server).filter(conf.Server.id==id).first()
+
 
 if not os.path.exists(config.config.db_file):
     os.makedirs(config.config.db_file)

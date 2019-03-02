@@ -10,7 +10,7 @@ from discord.ext import commands
 from ..config import config
 from .. import util
 
-from ..db import db, schemas
+from .. import db
 
 # Roleplay init module
 class Dice:
@@ -110,18 +110,15 @@ class Dice:
         message = list()
 
         # Parse any variables in the equation first
-        server = db.database[ctx.message.server.id]
-        user = server.get_user(ctx.message.author.id)
-        if user is None:
-            user = schemas.User(ctx.message.author.id)
-            server.add_user(user)
-            server.save()
+        server = db.getDb(ctx.message.server.id)
+        session = server.createSession()
+        user = server.getUser(session, ctx.message.author.id)
 
         loop = 0
         while len(re.findall(self._check_vars, equation)) > 0:
             loop += 1
             try:
-                equation = equation.format(**user.stats)
+                equation = equation.format(**user.getStats())
             except KeyError as ke:
                 self.say(message, "I couldn't find the variable " + str(ke))
                 await self.send(message)
