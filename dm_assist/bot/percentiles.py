@@ -129,7 +129,7 @@ class Tables:
             return
 
         self.say(message, 'here is a list of all the tables:')
-        self.say(message, '```\nYour Tables:\n' + '-' * 10)
+        self.say(message, '```markdown\nYour Tables:\n' + '-' * 10)
         self.say(message, '\n'.join([i.print_name() for i in your_tables]))
         self.say(message, '\nOther Tables:\n' + '-' * 10)
         self.say(message, '\n'.join([i.print_name() for i in other_tables]))
@@ -325,7 +325,7 @@ class Tables:
 
         table = self.get_table(ctx, message, session, table_name.lower())
 
-        messages = None
+        messages = list()
         if table is not None:
             self.say(message, table.print_name() + ' `(1-{} [1d{}])`'.format(len(table.getItems()), table.get_roll_sides()))
 
@@ -342,15 +342,17 @@ class Tables:
                         mess.append(m)
                         if len('\n'.join(mess)) > 2000 - 8:
                             mess.pop()
-                            messages.append('```' + '\n'.join(mess) + '```')
+                            messages.append('```gcode\n' + '\n'.join(mess) + '```')
                             mess = [m]
-                    messages.append('```' + '\n'.join(mess) + '```')
+                    messages.append('```gcode\n' + '\n'.join(mess) + '```')
                     self.say(message, 'The list is too long, I sent it to you')
                 elif table.hidden:
                     self.say(message, 'The list is hidden, I sent it to you to protect its privacy.')
-                    messages = ['\n'.join(table_cont)]
+                    messages.append('```gcode\n' + '\n'.join(table_cont) + '```')
+                    messages = ['\n'.join(messages)]
                 else:
-                    message.append('```' + '\n'.join(table_cont) + '```')
+                    message.append('```gcode\n' + '\n'.join(table_cont) + '```')
+                    messages = list()
             else:
                 self.say(message, "```This table is hidden, you aren't allowed to see all the items inside```")
 
@@ -445,8 +447,6 @@ class Tables:
         """
         Insert items into the table at a given position
         """
-        # TODO garbage collection on table items
-
         message = list()
 
         server = self.get_server(ctx)
@@ -520,8 +520,6 @@ class Tables:
         """
         message = list()
 
-        # TODO garbage collection on table items
-
         server = self.get_server(ctx)
         session = server.createSession()
         data = server.getData(session)
@@ -567,6 +565,7 @@ class Tables:
         if table is not None:
             if self.check_permissions(ctx, table):
                 table.percentiles.clear()
+                session.commit()
                 self.say(message, "Removed all items from " + table.print_name())
             else:
                 self.say(message, "You don't have permission to do this.")

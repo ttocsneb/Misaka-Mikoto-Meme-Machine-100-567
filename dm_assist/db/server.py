@@ -175,7 +175,8 @@ class Table(Base):
     hidden = Column(Boolean())
 
     percentiles = relationship("Percentile", order_by='Percentile.index',
-                               collection_class=ordering_list('index'))
+                               collection_class=ordering_list('index'),
+                               cascade="all, delete, delete-orphan")
 
     def getItems(self):
         return TableItems(self)
