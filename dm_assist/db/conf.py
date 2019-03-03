@@ -28,6 +28,3 @@ class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer(), primary_key=True)
-
-    servers = relationship("Server", secondary=association_table,
-                           backref='users')

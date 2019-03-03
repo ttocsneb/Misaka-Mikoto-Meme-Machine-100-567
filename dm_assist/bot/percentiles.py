@@ -327,7 +327,7 @@ class Tables:
 
         messages = None
         if table is not None:
-            self.say(message, table.print_name() + ' `(1-{} [1d{}])`'.format(len(table), table.get_roll_sides()))
+            self.say(message, table.print_name() + ' `(1-{} [1d{}])`'.format(len(table.getItems()), table.get_roll_sides()))
 
             # Don't display the contents of the table if it is hidden and the user is not authorized
             if not table.hidden or self.check_permissions(ctx, table):
@@ -373,7 +373,7 @@ class Tables:
         table = self.get_table(ctx, message, session, table_name.lower())
 
         if table is not None:
-            max_val = len(table)
+            max_val = len(table.getItems())
             # Validate the entered number
             if value is not None:
                 fail = False
@@ -400,7 +400,7 @@ class Tables:
                 from .dice import Dice
                 self.say(message, Dice.print_dice(dice))
             
-            perc = table[value - 1]
+            perc = table.getItems()[value - 1]
 
             self.say(message, '**{}**'.format(value))
             self.say(message, perc.value)
@@ -445,6 +445,7 @@ class Tables:
         """
         Insert items into the table at a given position
         """
+        # TODO garbage collection on table items
 
         message = list()
 
@@ -519,6 +520,8 @@ class Tables:
         """
         message = list()
 
+        # TODO garbage collection on table items
+
         server = self.get_server(ctx)
         session = server.createSession()
         data = server.getData(session)
@@ -527,8 +530,8 @@ class Tables:
 
         if table is not None:
             if self.check_permissions(ctx, table):
-                if index < 1 or index > len(table):
-                    self.say(message, "The range is `1-{}`".format(len(table)))
+                if index < 1 or index > len(table.getItems()):
+                    self.say(message, "The range is `1-{}`".format(len(table.getItems())))
                 else:
                     csv = self.parse_csv(message, items)
                     percs = [db.server.Percentile(
@@ -537,7 +540,7 @@ class Tables:
                         value=p[1]
                     ) for p in csv]
 
-                    start_index = table.percentiles.index(table[index])
+                    start_index = table.percentiles.index(table.getItems()[index])
                     end_index = start_index + len(percs)
 
                     table.percentiles[slice(start_index,end_index)] = percs

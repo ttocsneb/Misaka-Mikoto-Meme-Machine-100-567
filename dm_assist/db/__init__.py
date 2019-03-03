@@ -27,7 +27,7 @@ class Server(Database):
 
         # Setup the data row
         session = self.createSession()
-        if session.query(server.Data).first() is None:
+        if session.query(server.Data).count() is 0:
             data = server.Data(id=id, prefix=prefix, current_id=0)
             session.add(data)
             session.commit()
@@ -77,7 +77,17 @@ class Servers(Database):
         conf.Base.metadata.create_all(self._engine)
 
     @staticmethod
-    def getServer(session, id):
+    def getServer(session, id, commit=True):
+        server = session.query(conf.Server).filter(conf.Server.id==id).first()
+        if server is None:
+            server = conf.Server(id=id, prefix=config.config.prefix)
+            session.add(server)
+            if commit:
+                session.commit()
+            
+            # Generate a server db file
+            getDb(id)
+
         return session.query(conf.Server).filter(conf.Server.id==id).first()
 
 
@@ -94,11 +104,11 @@ def getDb(id):
     except KeyError:
         file = os.path.join(config.config.db_file, str(id) + '.db')
         db = Server('sqlite:///' + file, id, config.config.prefix)
-        _dbs[id] = Database('sqlite:///' + file)
+        _dbs[id] = db
 
         # Add the new server to servers db
         session = _servers.createSession()
-        if session.query(conf.Server).first() is None:
+        if session.query(conf.Server).filter(conf.Server.id==id).count() is 0:
             server = conf.Server(id=id, prefix=config.config.prefix)
             session.add(server)
             session.commit()
