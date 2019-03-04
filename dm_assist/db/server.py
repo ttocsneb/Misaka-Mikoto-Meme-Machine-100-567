@@ -79,8 +79,17 @@ class Equation(Base):
     equation = Column(String())
     creator_id = Column(Integer, ForeignKey("users.id"))
     creator = relationship("User", back_populates='equations')
+    params = Column(Integer())
 
     desc = Column(String())
+
+    def printName(self):
+        name = str(self.name) + ":" + str(self.id)
+        if self.params > 0:
+            name += "({})".format(", ".join([str(i) for i in range(self.params)]))
+        if self.desc:
+            name += ' (' + self.desc + ')'
+        return name
 
     def __repr__(self):
         return "<Equation(name='%s', equation='%s')>" % (self.name, self.equation)
