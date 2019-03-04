@@ -2,6 +2,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.orderinglist import ordering_list
+from sqlalchemy import inspect
 
 import collections
 
@@ -36,9 +37,10 @@ class Stats(collections.MutableMapping):
             stat = self[key]
             stat.value = value
         except KeyError:
-            stat = Stat()
+            data = inspect(self._user).session.query(Data).first()
+            
+            stat = Stat(id=data.getNewId())
             stat.name = key
-            stat.user_id = self._user.id
             stat.value = value
             self._user.stats.append(stat)
 

@@ -1,5 +1,6 @@
 import os
 import sqlalchemy
+import re
 
 from ..config import config
 
@@ -20,8 +21,12 @@ class Database:
 
 class Server(Database):
 
+    _name_regex = re.compile(r"([\S]+(?=:)|(?<=:)[\d]+|[^:\s]+|(?<!\S)(?=:))")
+
     def __init__(self, uri, id, prefix='!'):
         super().__init__(uri)
+
+
 
         server.Base.metadata.create_all(self._engine)
 
@@ -68,6 +73,37 @@ class Server(Database):
             serve_session.commit()
         
         return user
+    
+    @classmethod
+    def get_from_string(cls, session, clss, string, user_id=None):
+        name = re.compile(cls._name_regex, string)
+
+        if len(name) > 1:
+            # Get by the id
+            try:
+                obj = session.query(clss).filter(
+                    clss.id==int(name[1])
+                ).first()
+                if obj is not None:
+                    return obj
+            except ValueError:
+                pass
+        
+        # Try to get the object from the author
+        if user_id is not None:
+            obj = session.query(clss).filter(
+                clss.creator_id==user_id,
+                clss.name==name[0].lower()
+            ).first()
+            if obj is not None:
+                return obj
+        
+        # Try to get any object with the name
+        obj = session.query(clss).filter(
+            clss.name==name[0].lower()
+        ).first()
+
+        return obj
 
 
 class Servers(Database):
