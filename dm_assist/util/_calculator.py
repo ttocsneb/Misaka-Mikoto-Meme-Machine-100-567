@@ -1,13 +1,43 @@
 import re
 import math
+import collections
 
 from . import dice, BadEquation
+from .. import db
 
 def isTrue(a):
     """
     Checks if a number is considered true
     """
     return a > 0
+
+
+class FunctionDict(collections.Mapping):
+
+    def __init__(self, *args, **kwargs):
+        self.dict = dict(*args, **kwargs)
+        self._func = None
+    
+    def setFunction(self, function):
+        self._func = function
+
+    def __getitem__(self, key):
+        try:
+            return self.dict[key]
+        except KeyError:
+            pass
+        if self._func is not None:
+            if callable(self._func):
+                return self._func(key)
+            else:
+                return self._func[key]
+        raise KeyError
+    
+    def __iter__(self):
+        return iter(self.dict)
+    
+    def __len__(self):
+        return len(self._func)
 
 
 class Calculator:
@@ -22,7 +52,7 @@ class Calculator:
     """
 
     # Lower numbers mean a lower precidence (it is less important)
-    precidence = {
+    precidence = FunctionDict({
         '<': 1, '>': 1, '=': 1, '<>': 1, '<=': 1, '>=': 1, 'or': 1, 'and': 1,
         '+': 2, '-': 2,
         '*': 3, '/': 3,
@@ -30,10 +60,10 @@ class Calculator:
         'd': 5,
         'round': 6, 'max': 6, 'min': 6, 'floor': 6, 'ceil': 6,
         'adv': 6, 'dis': 6, 'top': 6, 'bot': 6, 'if': 6
-    }
+    })
     
     # A function by default has 2 arguments, if it does not, list the number required here.
-    function_length = {
+    function_length = FunctionDict({
         'round': 1,
         'adv': 1,
         'dis': 1,
@@ -42,10 +72,10 @@ class Calculator:
         'floor': 1,
         'ceil': 1,
         'if': 3
-    }
+    })
 
     # All the functions are defined here as lambdas.
-    functions = {
+    functions = FunctionDict({
         # Basic functions
         '+': lambda a, b: a + b,
         '-': lambda a, b: a - b,
@@ -76,15 +106,16 @@ class Calculator:
         'min': lambda a, b: min(a, b),
         'floor': lambda a: math.floor(a),
         'ceil': lambda a: math.floor(a)
-    }
+    })
 
     def __init__(self):
         self._strip_regex = re.compile(r"\s+")
-        self._parse_regex = re.compile(r"((^|(?<=[^\d)]))[-][\d.]+|[\d.]+|[a-z]+|[<>=]+|[\W])")
+        self._parse_regex = re.compile(r"((^|(?<=[^\d)]))[-][\d.]+|[\d.]+|[a-z]+(:[\d]+)?|:[\d]+|[<>=]+|[\W])")
+        self._check_vars_regex = re.compile(r"{(.*?)}")
         # _parse_regex info
         # 
         # (^|(?<=[^\w)]))[-][\d.]+
-        # Negative Numbers
+        # Negative Number
         #   - (^|(?<=[^\w)]))
         #     Assert that the next token will be unary
         #   - [-]
@@ -95,8 +126,11 @@ class Calculator:
         # [\d.]+
         # Decimal Numbers
         # 
-        # [a-z]+
+        # [a-z]+(:[\d]+)?
         # Functions
+        # 
+        # :[\d]+
+        # Function ids
         # 
         # [<>=]+
         # Boolean operators
@@ -179,26 +213,61 @@ class Calculator:
             if isinstance(i, float):
                 stack.append(i)
             else:
-                try:
+                # Load the operands
+                operands = list()
+                for _ in range(self.__class__.function_length.get(i, 2)):
                     try:
-                        # Load the operands
-                        operands = list()
-                        for _ in range(self.__class__.function_length.get(i, 2)):
-                            operands.insert(0, stack.pop())
-
-                        # Process the function
-                        stack.append(self.__class__.functions[i](*operands))
+                        operands.insert(0, stack.pop())
                     except IndexError:
-                        raise BadEquation("Unbalanced number of operators or operands.")
-                except IndexError:
-                    raise BadEquation("Invalid Operator '{}'.".format(i))
+                        raise BadEquation("Invalid number of operands")
+                try:
+                    # Process the function
+                    stack.append(self.__class__.functions[i](*operands))
+                except KeyError:
+
+                    raise BadEquation("Invalid Function **{}**".format(i))
         
         if len(stack) is not 1:
             raise BadEquation("Invalid number of operands.")
         
         return stack.pop()
 
-    def parse_equation(self, string: str) -> float:
+    def parse_args(self, equation, session, user, args=None):
+        """
+        Set all the arguments in the equation
+        """
+        if args is None:
+            args = list()
+
+        loop = 0
+        stats = dict()
+        for stat in user.stats:
+            stats[stat.name] = stat.value
+
+        while len(re.findall(self._check_vars_regex, equation)) > 0:
+            loop += 1
+            if loop >= 20:
+                raise BadEquation("Too much recursion in the equation!")
+            try:
+                equation = equation.format(*args, **stats)
+            except KeyError:
+                from string import Formatter
+                params = [fn for _, fn, _, _ in Formatter().parse(equation) if fn is not None]
+
+                missing_keys = list(set(params).difference(stats.keys()))
+
+                raise BadEquation(
+                    "Could not find the stats: "
+                    + ', '.join(["**{}**".format(mk) for mk in missing_keys])
+                )
+            except IndexError:
+                raise BadEquation(
+                    "Not enough arguments given"
+                )
+
+        return equation
+
+    def parse_equation(self, string: str, session = None, user=None, _recursed=False, _repeats=None) -> float:
         """
         Parse a human readable equation.
 
@@ -219,7 +288,64 @@ class Calculator:
 
         If there is a formatting problem with the given equation, a BadEquation error
         will be thrown.
+
+        The session parameter is optional, and is an instance of a server object.
+        Using the session parameter allows the use of custom equations.
         """
+
+        if _recursed > 20:
+            raise BadEquation("Too much recursion in the equation!")
+
+        # Add the custom equations to the equation list
+        if session is not None:
+            repeats = dict() if _repeats is None else repeats
+
+            def getEquation(eq_name):
+                try:
+                    return repeats[eq_name].params
+                except KeyError:
+                    pass
+                if user is not None:
+                    eq = db.Server.get_from_string(session, db.server.Equation, eq_name, user.id)
+                    if eq is None:
+                        raise KeyError
+                    repeats[eq_name] = eq
+                    return eq.params
+            
+            def getEquationFunction(eq_name):
+                try:
+                    eq = repeats[eq_name]
+                except KeyError:
+                    pass
+                if user is not None:
+                    eq = db.Server.get_from_string(session, db.server.Equation, eq_name, user.id)
+                    if eq is None:
+                        raise KeyError
+                    repeats[eq_name] = eq
+                
+                return lambda *args: self.parse_equation(
+                    self.parse_args(eq.equation, session, user, args),
+                    session,
+                    user,
+                    _recursed=_recursed + 1)
+            
+            def getEquationPrecidence(eq_name):
+                try:
+                    eq = repeats[eq_name]
+                except KeyError:
+                    pass
+                if user is not None:
+                    eq = db.Server.get_from_string(session, db.server.Equation, eq_name, user.id)
+                    if eq is None:
+                        raise KeyError
+                    repeats[eq_name] = eq
+                return 6
+
+            self.__class__.functions.setFunction(getEquationFunction)
+            if _recursed is False:
+                self.__class__.function_length.setFunction(getEquation)
+                self.__class__.precidence.setFunction(getEquationPrecidence)
+
         # parse the string into a list of operators and operands.
         stripped = re.sub(self._strip_regex, "", string.lower())
         equation = [r[0] for r in re.findall(self._parse_regex, stripped)]
@@ -229,6 +355,12 @@ class Calculator:
 
         # Find the answer to the equation
         value = self._calculate_equation(equation)
+
+        # Reset the custom equations
+        if _recursed is False:
+            self.__class__.function_length.setFunction(None)
+            self.__class__.functions.setFunction(None)
+            self.__class__.precidence.setFunction(None)
 
         # Force the result into an int if it's an integer value
         return int(value) if value == int(value) else value

@@ -8,7 +8,7 @@ from discord.ext import commands
 from dm_assist.config import config
 
 from ..config import config
-from ..db import db
+from .. import db
 
 
 class Misc:
@@ -42,10 +42,22 @@ class Misc:
         Note You must have permission to manage the server to do this.
         """
         try:
-            if ctx.message.author.server_permissions.manage_server:
-                server = db.database[ctx.message.server.id]
+            if ctx.message.author.server_permissions.manage_server or \
+                    ctx.message.author.id in config.config.mods:
+                # Chage the server prefix
+                server = db.getDb(ctx.message.server.id)
+                session = server.createSession()
+                data = server.getData(session)
+                data.prefix = prefix[0]
+                session.commit()
+
+                # Change the database prefix
+                servers = db.getServers()
+                session = servers.createSession()
+                server = servers.getServer(session, ctx.message.server.id)
                 server.prefix = prefix[0]
-                server.save()
+                session.commit()
+
                 await self.bot.say("Successfully changed the prefix to `{}`".format(server.prefix))
             else:
                 await self.bot.say("You don't have the permissions to change my prefix!")

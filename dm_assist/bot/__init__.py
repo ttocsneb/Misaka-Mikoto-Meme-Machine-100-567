@@ -7,7 +7,7 @@ from discord.ext import commands
 from .. import config, db
 from ..config import config as conf
 
-from . import misc, dice, items, percentiles
+from . import misc, dice, percentiles, equations
 
 
 class Bot:
@@ -20,18 +20,15 @@ class Bot:
         """
         Dynamically get a server's prefix
         """
+        session = db.getServers().createSession()
         if message.channel.type in [discord.ChannelType.private, discord.ChannelType.group]:
-            prefixes = [s.prefix for s in db.db.database.values()]
+            user = session.query(db.conf.User).filter(db.conf.User.id==message.author.id).first()
+            # Get all the prefixes from each server the user is a part of
+            prefixes = [s.prefix for s in user.servers]
             return prefixes + [commands.when_mentioned(bot, message)]
 
         sid = message.server.id
-        try:
-            server = db.db.database[sid]
-        except KeyError:
-            self._logger.info("Setting up database for new server: %s", sid)
-            server = db.schemas.Server(sid, conf.config.prefix)
-            db.db.database[sid] = server
-            db.db.dump(sid)
+        server = db.Servers.getServer(session, sid)
 
         # Add the optional @ mention
         return [server.prefix, commands.when_mentioned(bot, message)]
@@ -45,7 +42,7 @@ class Bot:
 
         self.bot.add_cog(misc.Misc(self.bot))
         self.bot.add_cog(dice.Dice(self.bot))
-        self.bot.add_cog(items.Items(self.bot))
+        self.bot.add_cog(equations.Equations(self.bot))
         self.bot.add_cog(percentiles.Tables(self.bot))
 
 
