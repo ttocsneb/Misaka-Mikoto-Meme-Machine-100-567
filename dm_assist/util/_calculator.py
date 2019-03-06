@@ -52,7 +52,7 @@ class Calculator:
     """
 
     # Lower numbers mean a lower precidence (it is less important)
-    precidence = {
+    precidence = FunctionDict({
         '<': 1, '>': 1, '=': 1, '<>': 1, '<=': 1, '>=': 1, 'or': 1, 'and': 1,
         '+': 2, '-': 2,
         '*': 3, '/': 3,
@@ -60,7 +60,7 @@ class Calculator:
         'd': 5,
         'round': 6, 'max': 6, 'min': 6, 'floor': 6, 'ceil': 6,
         'adv': 6, 'dis': 6, 'top': 6, 'bot': 6, 'if': 6
-    }
+    })
     
     # A function by default has 2 arguments, if it does not, list the number required here.
     function_length = FunctionDict({
@@ -187,7 +187,7 @@ class Calculator:
                             raise BadEquation("Improper use of commas.")
                     else:
                         # If the precidence of the stack is greater than the current precidence, than pop until it's not
-                        while len(stack) > 6 and self.__class__.precidence.get(i, 0) <= self.__class__.precidence.get(stack[-1], 0):
+                        while len(stack) > 0 and self.__class__.precidence.get(i, 0) <= self.__class__.precidence.get(stack[-1], 0):
                             pop = stack.pop()
                             if pop == '(':
                                 raise BadEquation("Mismatched parentheses.")
@@ -213,15 +213,18 @@ class Calculator:
             if isinstance(i, float):
                 stack.append(i)
             else:
-                try:
-                    # Load the operands
-                    operands = list()
-                    for _ in range(self.__class__.function_length.get(i, 2)):
+                # Load the operands
+                operands = list()
+                for _ in range(self.__class__.function_length.get(i, 2)):
+                    try:
                         operands.insert(0, stack.pop())
-
+                    except IndexError:
+                        raise BadEquation("Invalid number of operands")
+                try:
                     # Process the function
                     stack.append(self.__class__.functions[i](*operands))
-                except IndexError:
+                except KeyError:
+
                     raise BadEquation("Invalid Function **{}**".format(i))
         
         if len(stack) is not 1:
@@ -237,7 +240,10 @@ class Calculator:
             args = list()
 
         loop = 0
-        stats = user.getStats()
+        stats = dict()
+        for stat in user.stats:
+            stats[stat.name] = stat.value
+
         while len(re.findall(self._check_vars_regex, equation)) > 0:
             loop += 1
             if loop >= 20:
@@ -322,10 +328,23 @@ class Calculator:
                     session,
                     user,
                     _recursed=_recursed + 1)
+            
+            def getEquationPrecidence(eq_name):
+                try:
+                    eq = repeats[eq_name]
+                except KeyError:
+                    pass
+                if user is not None:
+                    eq = db.Server.get_from_string(session, db.server.Equation, eq_name, user.id)
+                    if eq is None:
+                        raise KeyError
+                    repeats[eq_name] = eq
+                return 6
 
             self.__class__.functions.setFunction(getEquationFunction)
             if _recursed is False:
                 self.__class__.function_length.setFunction(getEquation)
+                self.__class__.precidence.setFunction(getEquationPrecidence)
 
         # parse the string into a list of operators and operands.
         stripped = re.sub(self._strip_regex, "", string.lower())
@@ -341,6 +360,7 @@ class Calculator:
         if _recursed is False:
             self.__class__.function_length.setFunction(None)
             self.__class__.functions.setFunction(None)
+            self.__class__.precidence.setFunction(None)
 
         # Force the result into an int if it's an integer value
         return int(value) if value == int(value) else value

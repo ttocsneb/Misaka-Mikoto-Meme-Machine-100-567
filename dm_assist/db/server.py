@@ -62,7 +62,8 @@ class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer(), primary_key=True)
-    stats = relationship("Stat")
+    stats = relationship("Stat", order_by="Stat.name",
+                         cascade="all, delete, delete-orphan")
     equations = relationship("Equation", back_populates='creator')
     tables = relationship("Table", back_populates='creator')
 
