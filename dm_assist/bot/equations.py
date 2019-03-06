@@ -1,6 +1,5 @@
 import logging
 import asyncio
-import re
 
 from discord.ext import commands
 
@@ -13,7 +12,6 @@ class Equations:
     def __init__(self, bot):
         self.bot = bot
         self._logger = logging.getLogger(__name__)
-        self._name_regex = re.compile(r"([\S]+(?=:)|(?<=:)[\d]+|[^:\s]+|(?<!\S)(?=:))")
     
     @staticmethod
     def say(messages, string):
@@ -59,35 +57,8 @@ class Equations:
         return len(set(args))
 
     def get_equation(self, ctx, message, session, name) -> db.server.Equation:
-        eq_name = re.findall(self._name_regex, name)
+        equation = db.Server.get_from_string(session, db.server.Equation, name, ctx.message.author.id)
 
-        if len(eq_name) > 1:
-            # Get the equation by its id
-            try:
-                equation = session.query(db.server.Equation).filter(
-                    db.server.Equation.id==int(eq_name[1])
-                ).first()
-                if equation is not None:
-                    return equation
-            except ValueError:
-                pass
-        
-        # There was no id given, or the equation with that id does not exist
-
-        # Try to get a table that the author owns.
-        equation = session.query(db.server.Equation).filter(
-            db.server.Equation.creator_id==ctx.message.author.id,
-            db.server.Equation.name==eq_name[0].lower()
-        ).first()
-        if equation is not None:
-            return equation
-        
-        # Could not find the equation that the author owns.
-        # Try to get any tale with the name given.
-
-        equation = session.query(db.server.Equation).filter(
-            db.server.Equation.name==eq_name[0].lower()
-        ).first()
         if equation is not None:
             return equation
         
@@ -267,7 +238,29 @@ class Equations:
 
         server = self.get_server(ctx)
         session = server.createSession()
+        user = self.get_user(ctx, session)
+
 
         equation = self.get_equation(ctx, message, session, eq_name)
 
-        # TODO calculate the equation
+        if equation is not None:
+            try:
+                eq = util.calculator.parse_args(equation.equation, session, user, args)
+                util.dice.logging_enabled = True
+                value = util.calculator.parse_equation(eq, session, user)
+                util.dice.logging_enabled = False
+
+                dice = util.dice.rolled_dice
+                if len(dice) > 0:
+                    from .dice import Dice
+                    self.say(message, Dice.print_dice(dice))
+                    self.say(message, Dice.print_dice_one_liner(dice + [(value, "sum")]))
+
+                self.say(message, "**{}**".format(value))
+            except util.BadEquation as be:
+                self.say(message, be)
+
+        await self.say_message(message)
+
+        if util.dice.low:
+            asyncio.ensure_future(util.dice.load_random_buffer())

@@ -76,7 +76,7 @@ class Server(Database):
     
     @classmethod
     def get_from_string(cls, session, clss, string, user_id=None):
-        name = re.compile(cls._name_regex, string)
+        name = re.findall(cls._name_regex, string)
 
         if len(name) > 1:
             # Get by the id

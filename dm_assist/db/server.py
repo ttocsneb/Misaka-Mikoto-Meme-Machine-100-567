@@ -239,7 +239,7 @@ class Table(Base):
         return ['{0: >{width}}  {1}'.format(*p, width=max_width) for p in percentile]
 
     def print_name(self):
-        desc = ' ({})'.format(self.desc) if self.desc is not None else ''
+        desc = ' ({})'.format(self.desc) if self.desc else ''
         return '{}:{}'.format(self.name, self.id) + desc
 
     def __repr__(self):

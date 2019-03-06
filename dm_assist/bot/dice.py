@@ -114,27 +114,13 @@ class Dice:
         session = server.createSession()
         user = server.getUser(session, ctx.message.author.id)
 
-        loop = 0
-        while len(re.findall(self._check_vars, equation)) > 0:
-            loop += 1
-            try:
-                equation = equation.format(**user.getStats())
-            except KeyError as ke:
-                self.say(message, "I couldn't find the variable " + str(ke))
-                await self.send(message)
-                return
-            if loop >= 20:
-                self.say(message, "Detected a circular dependancy in your variables.")
-                self.say(message, "I can't calculate your equation because of this, you will need to fix the issue before you try again.")
-                await self.send(message)
-                return
-
         try:
+            equation = util.calculator.parse_args(equation, session, user)
             util.dice.logging_enabled = True
-            value = util.calculator.parse_equation(equation)
+            value = util.calculator.parse_equation(equation, session, user)
             util.dice.logging_enabled = False
         except util.BadEquation as exception:
-            self.say(message, "{} Tell me again, but slower..".format(exception))
+            self.say(message, exception)
             await self.send(message)
             return
         

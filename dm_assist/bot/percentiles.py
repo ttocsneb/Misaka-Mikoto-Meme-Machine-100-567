@@ -1,6 +1,5 @@
 import logging
 import asyncio
-import re
 
 from discord.ext import commands
 
@@ -13,7 +12,6 @@ class Tables:
     def __init__(self, bot):
         self.bot = bot
         self._logger = logging.getLogger(__name__)
-        self._name_regex = re.compile(r"([\S]+(?=:)|(?<=:)[\d]+|[^:\s]+|(?<!\S)(?=:))")
     
     @staticmethod
     def say(messages, string):
@@ -24,36 +22,10 @@ class Tables:
         message = '\n'.join(messages)
         if message:
             await self.bot.say(message)
-    
+
     def get_table(self, ctx, message, session, name: str) -> db.server.Table:
-        table_name = re.findall(self._name_regex, name)
+        table = db.Server.get_from_string(session, db.server.Table, name, ctx.message.author.id)
 
-        if len(table_name) > 1:
-            # Get the table by its id
-            try:
-                table = session.query(db.server.Table).filter(
-                    db.server.Table.id==int(table_name[1])).first()
-                if table is not None:
-                    return table
-            except ValueError:
-                pass
-        
-        # There was no id given, or the id does not exist
-
-        # Try to get a table that the author owns.
-        table = session.query(db.server.Table).filter(
-            db.server.Table.creator_id==ctx.message.author.id
-        ).filter(
-            db.server.Table.name==table_name[0].lower()
-        ).first()
-        if table is not None:
-            return table
-        
-        # Could not find he table that the author owns.
-        # Try to get any table that matches the name.
-        table = session.query(db.server.Table).filter(
-            db.server.Table.name==table_name[0].lower()
-        ).first()
         if table is not None:
             return table
         

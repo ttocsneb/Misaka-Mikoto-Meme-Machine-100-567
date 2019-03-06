@@ -110,12 +110,12 @@ class Calculator:
 
     def __init__(self):
         self._strip_regex = re.compile(r"\s+")
-        self._parse_regex = re.compile(r"((^|(?<=[^\d)]))[-][\d.]+|[\d.]+|[a-z]+|[<>=]+|[\W])")
+        self._parse_regex = re.compile(r"((^|(?<=[^\d)]))[-][\d.]+|[\d.]+|[a-z]+(:[\d]+)?|:[\d]+|[<>=]+|[\W])")
         self._check_vars_regex = re.compile(r"{(.*?)}")
         # _parse_regex info
         # 
         # (^|(?<=[^\w)]))[-][\d.]+
-        # Negative Numbers
+        # Negative Number
         #   - (^|(?<=[^\w)]))
         #     Assert that the next token will be unary
         #   - [-]
@@ -126,8 +126,11 @@ class Calculator:
         # [\d.]+
         # Decimal Numbers
         # 
-        # [a-z]+
+        # [a-z]+(:[\d]+)?
         # Functions
+        # 
+        # :[\d]+
+        # Function ids
         # 
         # [<>=]+
         # Boolean operators
@@ -184,7 +187,7 @@ class Calculator:
                             raise BadEquation("Improper use of commas.")
                     else:
                         # If the precidence of the stack is greater than the current precidence, than pop until it's not
-                        while len(stack) > 0 and self.__class__.precidence.get(i, 0) <= self.__class__.precidence.get(stack[-1], 0):
+                        while len(stack) > 6 and self.__class__.precidence.get(i, 0) <= self.__class__.precidence.get(stack[-1], 0):
                             pop = stack.pop()
                             if pop == '(':
                                 raise BadEquation("Mismatched parentheses.")
@@ -211,18 +214,15 @@ class Calculator:
                 stack.append(i)
             else:
                 try:
-                    try:
-                        # Load the operands
-                        operands = list()
-                        for _ in range(self.__class__.function_length.get(i, 2)):
-                            operands.insert(0, stack.pop())
+                    # Load the operands
+                    operands = list()
+                    for _ in range(self.__class__.function_length.get(i, 2)):
+                        operands.insert(0, stack.pop())
 
-                        # Process the function
-                        stack.append(self.__class__.functions[i](*operands))
-                    except IndexError:
-                        raise BadEquation("Unbalanced number of operators or operands.")
+                    # Process the function
+                    stack.append(self.__class__.functions[i](*operands))
                 except IndexError:
-                    raise BadEquation("Invalid Operator '{}'.".format(i))
+                    raise BadEquation("Invalid Function **{}**".format(i))
         
         if len(stack) is not 1:
             raise BadEquation("Invalid number of operands.")
@@ -242,7 +242,22 @@ class Calculator:
             loop += 1
             if loop >= 20:
                 raise BadEquation("Too much recursion in the equation!")
-            equation = equation.format(*args, **stats)
+            try:
+                equation = equation.format(*args, **stats)
+            except KeyError:
+                from string import Formatter
+                params = [fn for _, fn, _, _ in Formatter().parse(equation) if fn is not None]
+
+                missing_keys = list(set(params).difference(stats.keys()))
+
+                raise BadEquation(
+                    "Could not find the stats: "
+                    + ', '.join(["**{}**".format(mk) for mk in missing_keys])
+                )
+            except IndexError:
+                raise BadEquation(
+                    "Not enough arguments given"
+                )
 
         return equation
 
@@ -281,7 +296,7 @@ class Calculator:
 
             def getEquation(eq_name):
                 try:
-                    return repeats[eq_name]
+                    return repeats[eq_name].params
                 except KeyError:
                     pass
                 if user is not None:
@@ -289,7 +304,7 @@ class Calculator:
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq
-                    return eq
+                    return eq.params
             
             def getEquationFunction(eq_name):
                 try:
