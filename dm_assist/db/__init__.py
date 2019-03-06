@@ -11,7 +11,7 @@ class Database:
 
     def __init__(self, uri):
         self._uri = uri
-        self._engine = sqlalchemy.create_engine(uri, echo=True)
+        self._engine = sqlalchemy.create_engine(uri, echo=False)
 
         self._session = sqlalchemy.orm.sessionmaker(bind=self._engine)
 

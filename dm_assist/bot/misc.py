@@ -42,7 +42,8 @@ class Misc:
         Note You must have permission to manage the server to do this.
         """
         try:
-            if ctx.message.author.server_permissions.manage_server:
+            if ctx.message.author.server_permissions.manage_server or \
+                    ctx.message.author.id in config.config.mods:
                 # Chage the server prefix
                 server = db.getDb(ctx.message.server.id)
                 session = server.createSession()
