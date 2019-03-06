@@ -124,7 +124,7 @@ class TableItems(collections.MutableSequence):
         # Process Slices
         if isinstance(index, slice):
             return [self[i] for i in range(*index.indices(len(self)))]
-        # Process negative indecies
+        # Process negative indices
         if index < 0:
             return self[len(self) - index]
         

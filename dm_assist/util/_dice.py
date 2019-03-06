@@ -136,7 +136,7 @@ class Dice:
         12
         ```
 
-        This is usefull for improving the odds of dice, orrolling advantage/
+        This is usefull for improving the odds of dice, or rolling advantage/
         disadvantage dice
 
         :param int sides: number of sides of the dice

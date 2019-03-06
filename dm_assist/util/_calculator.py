@@ -45,14 +45,14 @@ class Calculator:
     This parses textual equations, and calculates the result.
 
     If you want to add your own functions, all you need to do is to set 
-    its precidence in the precidence variable, set the number of operands
+    its precedence in the precedence variable, set the number of operands
     needed if it has more or less than 2, and create the function as a lambda
     in the functions dict.
 
     """
 
-    # Lower numbers mean a lower precidence (it is less important)
-    precidence = FunctionDict({
+    # Lower numbers mean a lower precedence (it is less important)
+    precedence = FunctionDict({
         '<': 1, '>': 1, '=': 1, '<>': 1, '<=': 1, '>=': 1, 'or': 1, 'and': 1,
         '+': 2, '-': 2,
         '*': 3, '/': 3,
@@ -160,9 +160,9 @@ class Calculator:
                 number = float(i)
                 equation.append(number)
             except ValueError:  # If the item is not a number, it must be an operator
-                # Check if the item is the end of a paranthesis
+                # Check if the item is the end of a parenthesis
                 if i == ')':
-                    # If so, pop all the operands up to the acompanying paranthesis
+                    # If so, pop all the operands up to the accompanying parentheses
                     num_parens -= 1
                     while len(stack) > 0:
                         pop = stack.pop()
@@ -186,8 +186,8 @@ class Calculator:
                         if not broken:
                             raise BadEquation("Improper use of commas.")
                     else:
-                        # If the precidence of the stack is greater than the current precidence, than pop until it's not
-                        while len(stack) > 0 and self.__class__.precidence.get(i, 0) <= self.__class__.precidence.get(stack[-1], 0):
+                        # If the precedence of the stack is greater than the current precedence, than pop until it's not
+                        while len(stack) > 0 and self.__class__.precedence.get(i, 0) <= self.__class__.precedence.get(stack[-1], 0):
                             pop = stack.pop()
                             if pop == '(':
                                 raise BadEquation("Mismatched parentheses.")
@@ -329,7 +329,7 @@ class Calculator:
                     user,
                     _recursed=_recursed + 1)
             
-            def getEquationPrecidence(eq_name):
+            def getEquationPrecedence(eq_name):
                 try:
                     eq = repeats[eq_name]
                 except KeyError:
@@ -344,7 +344,7 @@ class Calculator:
             self.__class__.functions.setFunction(getEquationFunction)
             if _recursed is False:
                 self.__class__.function_length.setFunction(getEquation)
-                self.__class__.precidence.setFunction(getEquationPrecidence)
+                self.__class__.precedence.setFunction(getEquationPrecedence)
 
         # parse the string into a list of operators and operands.
         stripped = re.sub(self._strip_regex, "", string.lower())
@@ -360,7 +360,7 @@ class Calculator:
         if _recursed is False:
             self.__class__.function_length.setFunction(None)
             self.__class__.functions.setFunction(None)
-            self.__class__.precidence.setFunction(None)
+            self.__class__.precedence.setFunction(None)
 
         # Force the result into an int if it's an integer value
         return int(value) if value == int(value) else value

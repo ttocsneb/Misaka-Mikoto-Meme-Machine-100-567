@@ -96,7 +96,7 @@ class Tables:
         ).all()
 
         if len(your_tables) + len(other_tables) is 0:
-            self.say(message, 'Ther are no tables yet.')
+            self.say(message, 'There are no tables yet.')
             await self.say_message(message)
             return
 

@@ -90,7 +90,7 @@ def get_defaults():
             default_volume=50
         ),
         prefix='!',
-        description='I am a proffesional dice roller.  I use Random.org to roll my dice.\nMy source code is available at https://github.com/ttocsneb/discordDiceBot',
+        description='I am a professional dice roller.  I use Random.org to roll my dice.\nMy source code is available at https://github.com/ttocsneb/discordDiceBot',
         token='Insert Token Here',
         random=dict(
             useRandomDotOrg=True,
@@ -106,7 +106,7 @@ def get_defaults():
         dumb=[u"...What did you think would happen?", u"...Why?", u"Are you ok?",  u"Do you need a doctor?",
               u"What else did you think it would do?"],
         memes=[u"You.", u"I'm running out of memes...", u"This entire project.", u"Ay, aren't you a funny guy.",
-               u"<Insert something cringy here>",u"tElL mE a mEmE!1!111!!1!!!!one!111!11", u"Are you feeling it now mr. crabs?",
+               u"<Insert something cringey here>",u"tElL mE a mEmE!1!111!!1!!!!one!111!11", u"Are you feeling it now mr. crabs?",
                u"1v1 me on rust, howbou dah?"],
         startup=[u"*Yawn* Hello friends!", u"おはようございます!", u"おはよう、お父さん", u"Ohayō, otōsan!",
                  "Alright, who's ready to die?", u"Greetings humans.", u"My body is Reggie."],

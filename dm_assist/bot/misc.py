@@ -44,7 +44,7 @@ class Misc:
         try:
             if ctx.message.author.server_permissions.manage_server or \
                     ctx.message.author.id in config.config.mods:
-                # Chage the server prefix
+                # Change the server prefix
                 server = db.getDb(ctx.message.server.id)
                 session = server.createSession()
                 data = server.getData(session)
