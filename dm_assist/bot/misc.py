@@ -41,6 +41,11 @@ class Misc:
 
         Note You must have permission to manage the server to do this.
         """
+        
+        if ctx.message.channel.type in [discord.ChannelType.private, discord.ChannelType.group]:
+            await self.bot.say("You can't use that command here.")
+            return
+
         try:
             if ctx.message.author.server_permissions.manage_server or \
                     ctx.message.author.id in config.config.mods:
@@ -63,3 +68,48 @@ class Misc:
                 await self.bot.say("You don't have the permissions to change my prefix!")
         except:
             await self.bot.say("You don't have the permissions to change my prefix!")
+
+    @commands.command(pass_context=True)
+    async def active(self, ctx):
+        """
+        Get your active PM server
+
+        Get the name of the server that is currently
+        selected for when you are private messaging this bot.
+        """
+        bot = self.bot
+        servers = bot.servers
+
+        conf = db.getServers()
+        session = conf.createSession()
+
+        user = session.query(db.conf.User).filter(
+            db.conf.User.id==ctx.message.author.id
+        ).first()
+
+        active_server = user.active_server_id
+
+        try:
+            server = [s for s in servers if s.id == str(active_server)][0]
+
+            await bot.say("**{}** is currently the active server".format(str(server)))
+        except IndexError:
+            await bot.say("No server is currently active, use `activate` to activate a server")
+
+    @commands.command(pass_context=True)
+    async def activate(self, ctx):
+        """
+        Activate the current server for PM use
+        """
+
+        if ctx.message.channel.type in [discord.ChannelType.private, discord.ChannelType.group]:
+            await self.bot.say("You can't use that command here.  Use it in a server to activate that server.")
+            return
+
+        server = db.getDb(ctx.message.server.id)
+
+        session = server.createSession()
+        server.getUser(session, ctx.message.author.id)
+
+        await self.bot.say("**{}** is now your active server.".format(str(ctx.message.server)))
+

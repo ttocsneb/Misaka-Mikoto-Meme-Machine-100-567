@@ -37,8 +37,15 @@ class Equations:
         except:
             return False
     
-    def get_server(self, ctx: commands.Context) -> db.Server:
-        return db.getDb(ctx.message.server.id)
+    def get_server(self, ctx: commands.Context, message = None) -> db.Server:
+        # If the message is not part of a server, get the active server from the author
+
+        server = db.getDbFromCtx(ctx)
+        if server is None:
+            if message is not None:
+                self.say(message, "You don't have an active server right now :/")
+                self.say(message, "Activate the server you want to use first.")
+        return server
     
     def get_user(self, ctx: commands.Context, session) -> db.server.User:
         return db.Server.getUser(session, ctx.message.author.id)
@@ -81,7 +88,10 @@ class Equations:
         
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
         user = self.get_user(ctx, session)
 
@@ -105,9 +115,15 @@ class Equations:
     
     @equations.command(pass_context=True, usage='<eq name>')
     async def show(self, ctx: commands.Context, table_name: str):
+        """
+        Show the equation
+        """
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         equation = self.get_equation(ctx, message, session, table_name)
@@ -136,7 +152,10 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         user = self.get_user(ctx, session)
@@ -163,7 +182,10 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         equation = self.get_equation(ctx, message, session, table_name)
@@ -186,7 +208,10 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         equation = self.get_equation(ctx, message, session, eq_name)
@@ -210,7 +235,10 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         equation = self.get_equation(ctx, message, session, eq_name)
@@ -236,7 +264,10 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
         user = self.get_user(ctx, session)
 
@@ -289,7 +320,10 @@ class Equations:
         
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
         user = self.get_user(ctx, session)
 
@@ -323,7 +357,10 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         user = self.get_user(ctx, session)
@@ -349,7 +386,10 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         user = self.get_user(ctx, session)

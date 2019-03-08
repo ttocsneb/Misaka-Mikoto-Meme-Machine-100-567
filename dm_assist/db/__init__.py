@@ -60,6 +60,12 @@ class Server(Database):
     @staticmethod
     def getUser(session, id, commit=True) -> server.User:
         user = session.query(server.User).filter(server.User.id==id).first()
+
+        servers = getServers()
+        serve_session = servers.createSession()
+        data = Server.getData(session)
+        serve_user = serve_session.query(conf.User).filter(conf.User.id==id).first()
+
         if user is None:
             # Add user to server database
             user = server.User(id=id)
@@ -67,15 +73,9 @@ class Server(Database):
             if commit:
                 session.commit()
             
-            # Add user to servers database
-            servers = getServers()
-            serve_session = servers.createSession()
-
             # Get the user, if it does not exist, create one
-            serve_user = serve_session.query(conf.User).filter(conf.User.id==id).first()
             if serve_user is None:
                 serve_user = conf.User(id=id)
-            data = Server.getData(session)
 
             # Get the server, if it doesn't exist, create one (shouldn't happen though)
             serve = serve_session.query(conf.Server).filter(conf.Server.id==data.id).first()
@@ -84,10 +84,11 @@ class Server(Database):
 
             # Add the user to the server.
             serve.users.append(serve_user)
-
-            # Don't check if commit is true, as this is a new session.
-            serve_session.commit()
         
+        # Set the active_server to the session's server id
+        serve_user.active_server_id = data.id
+        serve_session.commit()
+
         return user
     
     @classmethod
@@ -177,6 +178,27 @@ def getDb(id):
             session.commit()
 
         return db
+
+
+def getDbFromCtx(ctx, conf_session=None):
+    import discord
+    if ctx.message.channel.type in [discord.ChannelType.private, discord.ChannelType.group]:
+        if conf_session is None:
+            conf_session = getServers().createSession()
+
+        user = conf_session.query(conf.User).filter(
+            conf.User.id==ctx.message.author.id
+        ).first()
+
+        if user is None or user.active_server_id is None:
+            return None
+        
+        server = user.active_server
+    else:
+        # Duck typing at its finest
+        server = ctx.message.server
+    
+    return getDb(server.id)
 
 
 def getServers():

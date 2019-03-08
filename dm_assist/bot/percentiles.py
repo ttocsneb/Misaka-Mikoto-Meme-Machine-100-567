@@ -45,9 +45,16 @@ class Tables:
             return author.server_permissions.manage_server
         except:
             return False
+    
+    def get_server(self, ctx: commands.Context, message = None) -> db.Server:
+        # If the message is not part of a server, get the active server from the author
 
-    def get_server(self, ctx: commands.Context) -> db.Server:
-        return db.getDb(ctx.message.server.id)
+        server = db.getDbFromCtx(ctx)
+        if server is None:
+            if message is not None:
+                self.say(message, "You don't have an active server right now :/")
+                self.say(message, "Activate the server you want to use first.")
+        return server
     
     def get_user(self, ctx: commands.Context, session) -> db.server.User:
         return db.Server.getUser(session, ctx.message.author.id)
@@ -84,7 +91,10 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
         user = self.get_user(ctx, session)
 
@@ -148,7 +158,10 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
         user = self.get_user(ctx, session)
         data = server.getData(session)
@@ -182,7 +195,10 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         table = self.get_table(ctx, message, session, table.lower())
@@ -205,7 +221,10 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         table = self.get_table(ctx, message, session, table.lower())
@@ -228,7 +247,10 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         table = self.get_table(ctx, message, session, table.lower())
@@ -292,7 +314,10 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         table = self.get_table(ctx, message, session, table_name.lower())
@@ -314,16 +339,16 @@ class Tables:
                         mess.append(m)
                         if len('\n'.join(mess)) > 2000 - 8:
                             mess.pop()
-                            messages.append('```gcode\n' + '\n'.join(mess) + '```')
+                            messages.append('```markdown\n' + '\n'.join(mess) + '```')
                             mess = [m]
-                    messages.append('```gcode\n' + '\n'.join(mess) + '```')
+                    messages.append('```markdown\n' + '\n'.join(mess) + '```')
                     self.say(message, 'The list is too long, I sent it to you')
                 elif table.hidden:
                     self.say(message, 'The list is hidden, I sent it to you to protect its privacy.')
-                    messages.append('```gcode\n' + '\n'.join(table_cont) + '```')
+                    messages.append('```markdown\n' + '\n'.join(table_cont) + '```')
                     messages = ['\n'.join(messages)]
                 else:
-                    message.append('```gcode\n' + '\n'.join(table_cont) + '```')
+                    message.append('```markdown\n' + '\n'.join(table_cont) + '```')
                     messages = list()
             else:
                 self.say(message, "```This table is hidden, you aren't allowed to see all the items inside```")
@@ -341,7 +366,10 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         table = self.get_table(ctx, message, session, table_name.lower())
@@ -392,7 +420,10 @@ class Tables:
         """
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
         data = server.getData(session)
 
@@ -421,7 +452,10 @@ class Tables:
         """
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
         data = server.getData(session)
 
@@ -458,7 +492,10 @@ class Tables:
         """
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         table = self.get_table(ctx, message, session, table_name.lower())
@@ -492,7 +529,10 @@ class Tables:
         """
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
         data = server.getData(session)
 
@@ -529,7 +569,10 @@ class Tables:
         """
         message = list()
 
-        server = self.get_server(ctx)
+        server = self.get_server(ctx, message)
+        if message is None:
+            await self.say_message(message)
+            return
         session = server.createSession()
 
         table = self.get_table(ctx, message, session, table_name.lower())

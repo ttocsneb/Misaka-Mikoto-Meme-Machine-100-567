@@ -30,7 +30,7 @@ class Dice:
                 for i in range(min(int(math.ceil(len(dice) / 10.0)), 4))
             ])
 
-        return "Rolled:\n```\n{}{}\n```".format(dice_string, '...' if len(dice) > 30 else '')
+        return "Rolled:\n```python\n{}{}\n```".format(dice_string, '...' if len(dice) > 30 else '')
 
     @staticmethod
     def print_dice_one_liner(dice):
@@ -72,6 +72,16 @@ class Dice:
     async def send(self, messages):
         await self.bot.say('\n'.join(messages))
 
+    def get_server(self, ctx: commands.Context, message = None) -> db.Server:
+        # If the message is not part of a server, get the active server from the author
+
+        server = db.getDbFromCtx(ctx)
+        if server is None:
+            if message is not None:
+                self.say(message, "You don't have an active server right now :/")
+                self.say(message, "Activate the server you want to use first.")
+        return server
+
     @commands.command(pass_context=True, aliases=['calc'])
     async def roll(self, ctx:commands.Context, *, equation: str):
         """
@@ -110,12 +120,17 @@ class Dice:
         message = list()
 
         # Parse any variables in the equation first
-        server = db.getDb(ctx.message.server.id)
-        session = server.createSession()
-        user = server.getUser(session, ctx.message.author.id)
+        server = self.get_server(ctx)
+        if server is not None:
+            session = server.createSession()
+            user = server.getUser(session, ctx.message.author.id)
+        else:
+            session = None
+            user = None
 
         try:
-            equation = util.calculator.parse_args(equation, session, user)
+            if server is not None:
+                equation = util.calculator.parse_args(equation, session, user)
             util.dice.logging_enabled = True
             value = util.calculator.parse_equation(equation, session, user)
             util.dice.logging_enabled = False
