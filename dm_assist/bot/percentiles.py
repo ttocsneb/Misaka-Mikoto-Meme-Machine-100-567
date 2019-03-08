@@ -92,7 +92,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
@@ -159,7 +159,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
@@ -196,7 +196,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
@@ -222,7 +222,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
@@ -248,7 +248,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
@@ -315,7 +315,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
@@ -367,7 +367,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
@@ -421,7 +421,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
@@ -453,7 +453,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
@@ -493,7 +493,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
@@ -530,7 +530,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
@@ -570,7 +570,7 @@ class Tables:
         message = list()
 
         server = self.get_server(ctx, message)
-        if message is None:
+        if server is None:
             await self.say_message(message)
             return
         session = server.createSession()
