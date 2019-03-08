@@ -2,10 +2,17 @@ import os
 import sqlalchemy
 import re
 
+import alembic.config
+
 from ..config import config
 
 from . import server, conf
 
+
+alembic_ini = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), 'alembic'))
+
+print(alembic_ini)
 
 class Database:
 
@@ -26,9 +33,18 @@ class Server(Database):
     def __init__(self, uri, id, prefix='!'):
         super().__init__(uri)
 
+        wd = os.getcwd()
+        os.chdir(alembic_ini)
 
+        # upgrade the database
+        alembic_args = [
+            '-n', 'server',
+            '-x', 'url={}'.format(uri),
+            'upgrade', 'head'
+        ]
+        alembic.config.main(argv=alembic_args)
 
-        server.Base.metadata.create_all(self._engine)
+        os.chdir(wd)
 
         # Setup the data row
         session = self.createSession()
@@ -110,7 +126,18 @@ class Servers(Database):
     def __init__(self, uri):
         super().__init__(uri)
 
-        conf.Base.metadata.create_all(self._engine)
+        wd = os.getcwd()
+        os.chdir(alembic_ini)
+
+        # upgrade the database
+        alembic_args = [
+            '-n', 'conf',
+            '-x', 'url={}'.format(uri),
+            'upgrade', 'head'
+        ]
+        alembic.config.main(argv=alembic_args)
+
+        os.chdir(wd)
 
     @staticmethod
     def getServer(session, id, commit=True):

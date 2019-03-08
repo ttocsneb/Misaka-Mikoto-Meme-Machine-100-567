@@ -11,7 +11,8 @@ INSTALL_REQUIRES = [
       'discord.py',
       'ruamel.yaml',
       'marshmallow',
-      'SQLAlchemy'
+      'SQLAlchemy',
+      'alembic'
 ]
 
 

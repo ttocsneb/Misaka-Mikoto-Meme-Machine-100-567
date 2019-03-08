@@ -28,3 +28,6 @@ class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer(), primary_key=True)
+
+    active_server_id = Column(Integer(), ForeignKey('servers.id'))
+    active_server = relationship("Server", uselist=False)
