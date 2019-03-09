@@ -220,8 +220,18 @@ class Equations:
             if self.check_permissions(ctx, equation):
                 equation.equation = eq.lower()
                 equation.params = self.get_num_params(eq)
+
+                from . import stats
+                success = stats.Stats.update_stats_equations(session, equation)
+
                 session.commit()
-                self.say(message, "Changed {} equation".format(equation.printName()))
+
+                if success:
+                    self.say(message, "Changed {} equation".format(equation.printName()))
+                else:
+                    self.say(message, "There were errors while updating everyone's stats")
+                    self.say(message, "Make sure that stats are updated, or that this equation is backwards compatible.")
+                    self.say(message, "\nThe equation {} is still changed though.".format(equation.printName()))
             else:
                 self.say(message, "You don't have permission for that.")
         

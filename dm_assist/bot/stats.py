@@ -8,9 +8,10 @@ from .. import util, db
 
 class Stats:
 
+    _logger = logging.getLogger(__name__)
+
     def __init__(self, bot):
         self.bot = bot
-        self._logger = logging.getLogger(__name__)
     
     @staticmethod
     def say(messages, string):
@@ -44,12 +45,42 @@ class Stats:
     def get_user(self, ctx: commands.Context, session) -> db.server.User:
         return db.Server.getUser(session, ctx.message.author.id)
     
-    def calc_stat_value(self, session, user: db.server.User, stat: db.server.Stat):
+    @classmethod
+    def update_stats_equations(cls, session, eq: db.server.Equation):
+        """
+        update the calculated equations for all stats that use the given equation
+        """
+
+        stats = session.query(db.server.Stat).all()
+
+        errors = False
+
+        for stat in stats:
+            user = session.query(db.server.User).get(stat.user_id)
+            parsed = util.calculator.parse_args(stat.value.lower(), session, user)
+            parsed = util.calculator._get_elements(parsed)
+
+            if any(db.Server.get_from_string(session, db.server.Equation, s) == eq for s in parsed):
+                
+                try:
+                    cls.calc_stat_value(session, user, stat)
+                except util.BadEquation as be:
+                    errors = True
+                    cls._logger.warning("There was an error while calculating the stat value ({}): {}".format(str(stat), str(be)))
+        
+        return not errors
+
+    @classmethod
+    def calc_stat_value(cls, session, user: db.server.User, stat: db.server.Stat):
         """
         Calculate the stat values for the given stat, and all stats that depend on this stat.
 
         raises util.BadEquation error on a bad equation
         """
+
+        # 5. set calc to None
+        stat.calc = None
+
         # 1. check if there are dice rolls
         util.dice.logging_enabled = True
         eq = util.calculator.parse_args(stat.value, session, user)
@@ -62,17 +93,23 @@ class Stats:
         if len(dice) is 0:
             # 3. set calc to calculated equation
             stat.calc = value
-        else:
-            # 5. set calc to None
-            stat.calc = None
         
         # 6. check if there are dependent stats
+
+        errors = False
+
         from string import Formatter
         name = stat.name.lower()
         for st in user.stats:
             params = [fn for _, fn, _, _ in Formatter().parse(st.value.lower()) if fn is not None]
             if name in params:
-                self.calc_stat_value(session, user, st)
+                try:
+                    cls.calc_stat_value(session, user, st)
+                except util.BadEquation:
+                    errors = True
+        
+        if errors:
+            raise util.BadEquation("There were errors while calculating dependent stats.")
 
     @commands.group(pass_context=True, aliases=['st', 'stat'])
     async def stats(self, ctx: commands.Context):
