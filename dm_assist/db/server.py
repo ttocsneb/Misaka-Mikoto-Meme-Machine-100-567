@@ -16,10 +16,21 @@ class Stat(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     name = Column(String())
     value = Column(String())
+    calc = Column(Integer())
 
     def __repr__(self):
         return "'{}': '{}'".format(self.name, self.value)
 
+
+class RollStat(Base):
+    __tablename__ = 'rollstats'
+
+    id = Column(Integer(), primary_key=True)
+    name = Column(String())
+    value = Column(String())
+
+    def __repr__(self):
+        return "<RollStat(name='{}', value='{}')>".format(self.name, self.value)
 
 class Stats(collections.MutableMapping):
 

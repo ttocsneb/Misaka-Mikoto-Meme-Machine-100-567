@@ -72,10 +72,10 @@ class Server(Database):
             session.add(user)
             if commit:
                 session.commit()
-            
+        
+        if serve_user is None:
             # Get the user, if it does not exist, create one
-            if serve_user is None:
-                serve_user = conf.User(id=id)
+            serve_user = conf.User(id=id)
 
             # Get the server, if it doesn't exist, create one (shouldn't happen though)
             serve = serve_session.query(conf.Server).filter(conf.Server.id==data.id).first()
