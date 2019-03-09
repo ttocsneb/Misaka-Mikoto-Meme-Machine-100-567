@@ -1,5 +1,5 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy import inspect
@@ -16,7 +16,12 @@ class Stat(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     name = Column(String())
     value = Column(String())
-    calc = Column(Integer())
+    calc = Column(Float())
+
+    def getValue(self):
+        if self.calc is not None:
+            return self.calc
+        return self.value
 
     def __repr__(self):
         return "'{}': '{}'".format(self.name, self.value)

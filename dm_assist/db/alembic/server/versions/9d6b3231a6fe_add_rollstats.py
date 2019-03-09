@@ -25,7 +25,7 @@ def upgrade():
     )
 
     with op.batch_alter_table('stats') as batch_op:
-        batch_op.add_column(sa.Column('calc', sa.Integer()))
+        batch_op.add_column(sa.Column('calc', sa.Float()))
 
 
 def downgrade():

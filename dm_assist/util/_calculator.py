@@ -138,6 +138,13 @@ class Calculator:
         # [\W]
         # Operators
 
+    def _get_elements(self, string) -> list:
+        """
+        Parse the regex of an equation into a list of operands and operators.
+        """
+        stripped = re.sub(self._strip_regex, "", string.lower())
+        equation = [r[0] for r in re.findall(self._parse_regex, stripped)]
+        return equation
 
     def _load_equation(self, data: list) -> list:
         """
@@ -242,7 +249,7 @@ class Calculator:
         loop = 0
         stats = dict()
         for stat in user.stats:
-            stats[stat.name] = stat.value
+            stats[stat.name] = stat.getValue()
 
         while len(re.findall(self._check_vars_regex, equation)) > 0:
             loop += 1
@@ -347,8 +354,7 @@ class Calculator:
                 self.__class__.precedence.setFunction(getEquationPrecedence)
 
         # parse the string into a list of operators and operands.
-        stripped = re.sub(self._strip_regex, "", string.lower())
-        equation = [r[0] for r in re.findall(self._parse_regex, stripped)]
+        equation = self._get_elements(string)
 
         # Parse the equation using the Shunting Yard Algorithm
         equation = self._load_equation(equation)
