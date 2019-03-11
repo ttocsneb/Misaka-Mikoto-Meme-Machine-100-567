@@ -48,11 +48,11 @@ class Dice:
         return dice
 
     async def load_random_buffer(self):
-        asyncio.ensure_future(truerandom.populate_random_buffer(
+        await truerandom.populate_random_buffer(
             120,
             config.config.random.preFetchCount,
             config.config.random.useRandomDotOrg)
-        )
+
         self._low = False
 
     def __log_roll(self, value):

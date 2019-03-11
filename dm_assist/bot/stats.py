@@ -71,7 +71,7 @@ class Stats:
         return not errors
 
     @classmethod
-    def calc_stat_value(cls, session, user: db.server.User, stat: db.server.Stat):
+    def calc_stat_value(cls, session, user: db.server.User, stat: db.server.Stat, parse_randoms=False):
         """
         Calculate the stat values for the given stat, and all stats that depend on this stat.
 
@@ -90,7 +90,7 @@ class Stats:
 
         dice = util.dice.rolled_dice
 
-        if len(dice) is 0:
+        if len(dice) is 0 or parse_randoms is True:
             # 3. set calc to calculated equation
             stat.calc = value
         
@@ -101,7 +101,7 @@ class Stats:
         from string import Formatter
         name = stat.name.lower()
         for st in user.stats:
-            params = [fn for _, fn, _, _ in Formatter().parse(st.value.lower()) if fn is not None]
+            params = [fn for _, fn, _, _ in Formatter().parse(str(st.value).lower()) if fn is not None]
             if name in params:
                 try:
                     cls.calc_stat_value(session, user, st)
@@ -110,6 +110,8 @@ class Stats:
         
         if errors:
             raise util.BadEquation("There were errors while calculating dependent stats.")
+        
+        return dice
 
     @commands.group(pass_context=True, aliases=['st', 'stat'])
     async def stats(self, ctx: commands.Context):
@@ -259,4 +261,191 @@ class Stats:
         except KeyError:
             self.say(message, "Could not find **{}**".format(stat.lower()))
         
+        await self.send(message)
+
+    @commands.group(pass_context=True, aliases=['rollstats', 'confstats', 'gs', 'rs', 'cs'])
+    async def getstats(self, ctx: commands.Context):
+        """
+        Get and configure default stats
+
+        By running this command, you will be given default stats.
+
+        If you have permission to edit the server, or are a dm, you can change
+        what the default stats are.
+        """
+
+        if ctx.invoked_subcommand is not None:
+            return
+
+        message = list()
+
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.send(message)
+            return
+        session = server.createSession()
+
+        stats = session.query(db.server.RollStat).order_by(
+            db.server.RollStat.name
+        ).all()
+
+        if len(stats) is 0:
+            self.say(message, "There are no default stats yet.")
+            await self.send(message)
+            return
+
+        self.say(message, "```python")
+
+        max_name_width = max([len(stat.name) for stat in stats])
+
+        for stat in stats:
+            self.say(message, "{0: >{width}}  {1}".format(
+                stat.name, stat.value,
+                width=max_name_width
+            ))
+        
+        self.say(message, "```")
+
+        await self.send(message)
+    
+    @getstats.command(pass_context=True, name="apply", aliases=['roll'])
+    async def gs_apply(self, ctx: commands.Context):
+        """
+        Apply the default stats to your stats
+
+        If there are any random numbers, the result will be set instead of the
+        equation.
+        """
+        message = list()
+
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.send(message)
+            return
+        session = server.createSession()
+
+        await self.bot.send_typing(ctx.message.channel)
+
+        user = self.get_user(ctx, session)
+        data = db.Server.getData(session)
+
+        stats = user.getStats()
+        defaults = session.query(db.server.RollStat).all()
+
+        # Set all the stats first
+        for default in defaults:
+            stats[default.name] = default.value
+        
+        errors = list()
+
+        # calculate the stats
+        for default in defaults:
+            stat = stats[default.name]
+            try:
+                if util.dice.low:
+                    await util.dice.load_random_buffer()
+
+                dice = self.calc_stat_value(session, user, stat, parse_randoms=True)
+
+                if len(dice) is not 0:
+                    stat.value = stat.calc
+
+                    from .dice import Dice
+                    self.say(message, Dice.print_dice(dice))
+                    calc = int(stat.calc) if int(stat.calc) is stat.calc else stat.calc
+                    self.say(message, "{}: **{}**".format(stat.name, calc))
+            except util.BadEquation as be:
+                self.say(errors, "There was an error while setting {}:".format(stat.name))
+                self.say(errors, str(be))
+
+        session.commit()
+
+        message.extend(errors)
+
+        self.say(message, "I set your stats!")
+
+        await self.send(message)
+
+        if util.dice.low:
+            asyncio.ensure_future(util.dice.load_random_buffer())
+
+    @getstats.command(pass_context=True, name="show")
+    async def gs_show(self, ctx: commands.Context):
+        """
+        Show all the default stats
+        """
+
+    @getstats.command(pass_context=True, usage="<stat> <value>", name="set", aliases=['add', 'edit'])
+    async def gs_set(self, ctx: commands.Context, stat_name: str, *, value: str):
+        """
+        Set a default stat value
+        """
+
+        message = list()
+
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.send(message)
+            return
+        session = server.createSession()
+
+        if not self.check_permissions(ctx):
+            self.say(message, "You don't have permission to do that.")
+            await self.send(message)
+            return
+
+        stat = session.query(db.server.RollStat).filter(
+            db.server.RollStat.name==stat_name.lower()
+        ).first()
+
+        if stat is None:
+            data = db.Server.getData(session)
+            stat = db.server.RollStat(id=data.getNewId())
+            stat.name = stat_name.lower()
+            session.add(stat)
+        
+        stat.value = value.lower()
+
+        session.commit()
+
+        self.say(message, "Changed the default stat for {} to".format(stat.name))
+        self.say(message, "```python")
+        self.say(message, stat.value)
+        self.say(message, "```")
+
+        await self.send(message)
+
+    @getstats.command(pass_context=True, usage="<stat>", name="del", aliases=['rm'])
+    async def gs_del(self, ctx: commands.Context, stat_name: str):
+        """
+        Delete a default stat
+        """
+
+        message = list()
+        
+        server = self.get_server(ctx, message)
+        if server is None:
+            await self.send(message)
+            return
+        session = server.createSession()
+
+        if not self.check_permissions(ctx):
+            self.say(message, "You don't have permission to do that")
+            await self.send(message)
+            return
+        
+        stat = session.query(db.server.RollStat).filter(
+            db.server.RollStat.name==stat_name.lower()
+        ).first()
+
+        if stat is None:
+            self.say(message, "{} does not exist, so does not need to be deleted".format(stat_name.lower()))
+            await self.send(message)
+            return
+
+        session.delete(stat)
+        session.commit()
+
+        self.say(message, "Deleted the default stat {}".format(stat_name.lower()))
+
         await self.send(message)
