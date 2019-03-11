@@ -272,6 +272,8 @@ class Data(Base):
 
     current_id = Column(Integer())
 
+    mod = Column(String())
+
     def getNewId(self):
         self.current_id += 1
         return self.current_id

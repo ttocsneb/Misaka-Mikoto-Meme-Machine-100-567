@@ -113,3 +113,61 @@ class Misc:
 
         await self.bot.say("**{}** is now your active server.".format(str(ctx.message.server)))
 
+    @commands.command(pass_context=True, usage="<role>", aliases=['setdm', 'setgm'])
+    async def setmod(self, ctx, *, role_name: str):
+        """
+        Set a moderator role
+
+        Most commonly used for the role of Game Master
+
+        Anyone with the set role will have full access to all equations, tables,
+        and stats on the server
+
+        You must have permission to modify the server in order to change the moderator role
+        """
+
+        if ctx.message.channel.type in [discord.ChannelType.private, discord.ChannelType.group]:
+            await self.bot.say("You can't use that command here.")
+            return
+
+        message = list()
+
+        try:
+            if ctx.message.author.server_permissions.manage_server or \
+                    ctx.message.author.id in config.config.mods:
+
+                server = db.getDb(ctx.message.server.id)
+                session = server.createSession()
+
+                data = db.Server.getData(session)
+
+                role_name = role_name.lower()
+                for role in ctx.message.server.roles:
+                    if role_name in [role.name.lower(), role.mention.lower()]:
+                        data.mod = role.id
+
+                        name = role.name
+                        if role.mentionable:
+                            name = role.mention
+
+                        session.commit()
+
+                        if role.is_everyone:
+                            message.append("I don't recommend you to make everyone into a moderator, but you do you.\n")
+
+                        message.append("I made {} a moderator!".format(name))
+
+                        await self.bot.say('\n'.join(message))
+                        return
+
+                await self.bot.say("I couldn't find the role: {}".format(role_name))
+            else:
+                await self.bot.say("You don't have the permissions to change the moderator")
+        except Exception as err:
+            import traceback
+            self._logger.error(traceback.extract_tb(err.__traceback__))
+            self._logger.error(err)
+            await self.bot.say("You don't have the permissions to change the moderator")
+
+
+
