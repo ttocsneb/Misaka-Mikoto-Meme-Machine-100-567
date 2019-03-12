@@ -113,6 +113,23 @@ class Misc:
 
         await self.bot.say("**{}** is now your active server.".format(str(ctx.message.server)))
 
+    @commands.command(pass_context=True, aliases=['getdm', 'getgm'])
+    async def getmod(self, ctx):
+        """
+        Get the current moderator role
+        """
+
+        server = db.getDb(ctx.message.server.id)
+        session = server.createSession()
+
+        data = server.getData(session)
+
+        try:
+            role = [role for role in ctx.message.server.roles if role.id == data.mod][0]
+            await self.bot.say("The current moderator role is **{}**".format(role.name))
+        except IndexError:
+            await self.bot.say("There is no moderator set")
+
     @commands.command(pass_context=True, usage="<role>", aliases=['setdm', 'setgm'])
     async def setmod(self, ctx, *, role_name: str):
         """
@@ -132,12 +149,17 @@ class Misc:
 
         message = list()
 
-        try:
-            if ctx.message.author.server_permissions.manage_server or \
-                    ctx.message.author.id in config.config.mods:
 
-                server = db.getDb(ctx.message.server.id)
-                session = server.createSession()
+        server = db.getDbFromCtx(ctx)
+        session = server.createSession()
+        user = server.getUser(session, ctx.message.author.id)
+
+        member = user.getMember(ctx)
+
+        try:
+            if member.server_permissions.manage_server or \
+                    member.id in config.config.mods:
+
 
                 data = db.Server.getData(session)
 

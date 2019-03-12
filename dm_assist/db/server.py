@@ -85,6 +85,61 @@ class User(Base):
 
     def getStats(self):
         return Stats(self)
+    
+    def checkPermissions(self, ctx, obj_w_creator=None):
+        """
+        Check if the user has permission to do a thing
+
+        If obj_w_creator is provided, this will also check if the user is the
+        creator of the object
+        """
+        from ..config import config
+
+        # Check if the user is the creator of the object
+        if obj_w_creator is not None:
+            if ctx.message.author.id == str(obj_w_creator.creator_id):
+                return True
+        
+        # Check if the user is a global moderator
+        if ctx.message.author.id in config.config.mods:
+            return True
+        
+        member = self.getMember(ctx)
+        if member is not None:
+            try:
+                data = inspect(self).session.query(Data).first()
+                
+                # Check if the user is a server moderator
+                if data.mod in [role.id for role in member.roles]:
+                    return True
+                
+                # Check if the user has permission to manage the server
+                return member.server_permissions.manage_server
+            except:
+                pass
+        return False
+
+    def getMember(self, ctx):
+        """
+        Get the member from the active server.
+
+        if the context is from the active server, then ctx.message.author will be returned
+        """
+        import discord
+
+        if ctx.message.channel.type in [discord.ChannelType.private, discord.ChannelType.group]:
+            data = inspect(self).session.query(Data).first()
+            server_id = str(data.id)
+
+            server = next((server for server in ctx.bot.servers if server.id == server_id), None)
+
+            if server is not None:
+                return next((user for user in server.users if user.id == ctx.message.author.id), None)
+            else:
+                return None
+
+        else:
+            return ctx.message.author
 
     def __repr__(self):
         return "<User(id='{}')>".format(self.id)

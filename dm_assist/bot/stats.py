@@ -23,17 +23,6 @@ class Stats:
         if message:
             await self.bot.say(message)
     
-    def check_permissions(self, ctx: commands.Context):
-        author = ctx.message.author
-
-        if author.id in config.config.mods:
-            return True
-        
-        try:
-            return author.server_permissions.manage_server
-        except:
-            return False
-
     def get_server(self, ctx: commands.Context, message=None) -> db.Server:
 
         server = db.getDbFromCtx(ctx)
@@ -324,10 +313,10 @@ class Stats:
             return
         session = server.createSession()
 
+        # Send the typing signal to discord
         await self.bot.send_typing(ctx.message.channel)
 
         user = self.get_user(ctx, session)
-        data = db.Server.getData(session)
 
         stats = user.getStats()
         defaults = session.query(db.server.RollStat).all()
@@ -388,8 +377,9 @@ class Stats:
             await self.send(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
 
-        if not self.check_permissions(ctx):
+        if not user.checkPermissions(ctx):
             self.say(message, "You don't have permission to do that.")
             await self.send(message)
             return
@@ -428,8 +418,9 @@ class Stats:
             await self.send(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
 
-        if not self.check_permissions(ctx):
+        if not user.checkPermissions(ctx):
             self.say(message, "You don't have permission to do that")
             await self.send(message)
             return

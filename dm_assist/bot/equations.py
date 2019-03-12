@@ -23,20 +23,6 @@ class Equations:
         if message:
             await self.bot.say(message)
 
-    def check_permissions(self, ctx: commands.Context, eq: db.server.Equation):
-        author = ctx.message.author
-
-        if author.id == eq.creator_id:
-            return True
-        
-        if author.id in config.config.mods:
-            return True
-        
-        try:
-            return author.server_permissions.manage_server
-        except:
-            return False
-    
     def get_server(self, ctx: commands.Context, message = None) -> db.Server:
         # If the message is not part of a server, get the active server from the author
 
@@ -187,11 +173,12 @@ class Equations:
             await self.say_message(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
 
         equation = self.get_equation(ctx, message, session, table_name)
 
         if equation is not None:
-            if self.check_permissions(ctx, equation):
+            if user.checkPermissions(ctx, equation):
                 equation.desc = description
                 session.commit()
                 self.say(message, "Changed {} description".format(equation.printName()))
@@ -213,11 +200,12 @@ class Equations:
             await self.say_message(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
 
         equation = self.get_equation(ctx, message, session, eq_name)
 
         if equation is not None:
-            if self.check_permissions(ctx, equation):
+            if user.checkPermissions(ctx, equation):
                 equation.equation = eq.lower()
                 equation.params = self.get_num_params(eq)
 
@@ -250,11 +238,12 @@ class Equations:
             await self.say_message(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
 
         equation = self.get_equation(ctx, message, session, eq_name)
 
         if equation is not None:
-            if self.check_permissions(ctx, equation):
+            if user.checkPermissions(ctx, equation):
                 name = equation.printName()
                 session.delete(equation)
                 session.commit()

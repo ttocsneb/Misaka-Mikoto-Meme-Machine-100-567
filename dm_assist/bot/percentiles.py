@@ -32,20 +32,6 @@ class Tables:
         # Could not find table
         self.say(message, "Could not find `{}`".format(name))
     
-    def check_permissions(self, ctx: commands.Context, table: db.server.Table):
-        author = ctx.message.author
-
-        if author.id == table.creator_id:
-            return True
-        
-        if author.id in config.config.mods:
-            return True
-        
-        try:
-            return author.server_permissions.manage_server
-        except:
-            return False
-    
     def get_server(self, ctx: commands.Context, message = None) -> db.Server:
         # If the message is not part of a server, get the active server from the author
 
@@ -200,10 +186,11 @@ class Tables:
             await self.say_message(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
 
         table = self.get_table(ctx, message, session, table.lower())
         if table is not None:
-            if self.check_permissions(ctx, table):
+            if user.checkPermissions(ctx, table):
                 self.say(message, "Deleted" + table.print_name())
 
                 session.delete(table)
@@ -226,11 +213,12 @@ class Tables:
             await self.say_message(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
 
         table = self.get_table(ctx, message, session, table.lower())
 
         if table is not None:
-            if self.check_permissions(ctx, table):
+            if user.checkPermissions(ctx, table):
                 table.desc = description
                 session.commit()
                 self.say(message, "Changed {} Description".format(table.print_name()))
@@ -252,10 +240,11 @@ class Tables:
             await self.say_message(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
 
         table = self.get_table(ctx, message, session, table.lower())
         if table is not None:
-            if self.check_permissions(ctx, table):
+            if user.checkPermissions(ctx, table):
                 hidden = hide[0].lower()
 
                 # Check if the first character is true, false, yes, no, 1, 0
@@ -319,6 +308,7 @@ class Tables:
             await self.say_message(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
 
         table = self.get_table(ctx, message, session, table_name.lower())
 
@@ -327,7 +317,7 @@ class Tables:
             self.say(message, table.print_name() + ' `(1-{} [1d{}])`'.format(len(table.getItems()), table.get_roll_sides()))
 
             # Don't display the contents of the table if it is hidden and the user is not authorized
-            if not table.hidden or self.check_permissions(ctx, table):
+            if not table.hidden or user.checkPermissions(ctx, table):
                 table_cont = list()
                 table_cont.extend(table.print_all_percentiles())
 
@@ -426,11 +416,12 @@ class Tables:
             return
         session = server.createSession()
         data = server.getData(session)
+        user = server.get_user(ctx, session)
 
         table = self.get_table(ctx, message, session, table_name.lower())
 
         if table is not None:
-            if self.check_permissions(ctx, table):
+            if user.checkPermissions(ctx, table):
                 csv = self.parse_csv(message, items)
                 percs = [db.server.Percentile(
                     id=data.getNewId(),
@@ -457,6 +448,7 @@ class Tables:
             await self.say_message(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
         data = server.getData(session)
 
         table = self.get_table(ctx, message, session, table_name.lower())
@@ -467,7 +459,7 @@ class Tables:
                 await self.say_message(message)
                 return
 
-            if self.check_permissions(ctx, table):
+            if user.checkPermissions(ctx, table):
                 csv = self.parse_csv(message, items)
                 percs = [db.server.Percentile(
                     id=data.getNewId(),
@@ -497,11 +489,12 @@ class Tables:
             await self.say_message(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
 
         table = self.get_table(ctx, message, session, table_name.lower())
 
         if table is not None:
-            if self.check_permissions(ctx, table):
+            if user.checkPermissions(ctx, table):
                 if index < 1 or index > len(table.getItems()):
                     self.say(message, "Index should be in the range of `1-{}`".format(len(table.getItems())))
                 elif num < 1:
@@ -534,12 +527,13 @@ class Tables:
             await self.say_message(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
         data = server.getData(session)
 
         table = self.get_table(ctx, message, session, table_name.lower())
 
         if table is not None:
-            if self.check_permissions(ctx, table):
+            if user.checkPermissions(ctx, table):
                 if index < 1 or index > len(table.getItems()):
                     self.say(message, "The range is `1-{}`".format(len(table.getItems())))
                 else:
@@ -574,11 +568,12 @@ class Tables:
             await self.say_message(message)
             return
         session = server.createSession()
+        user = self.get_user(ctx, session)
 
         table = self.get_table(ctx, message, session, table_name.lower())
 
         if table is not None:
-            if self.check_permissions(ctx, table):
+            if user.checkPermissions(ctx, table):
                 table.percentiles.clear()
                 session.commit()
                 self.say(message, "Removed all items from " + table.print_name())
