@@ -104,7 +104,7 @@ class Tables:
         self.say(message, '```')
         await self.say_message(message)
 
-    @commands.group(pass_context=True)
+    @commands.group(pass_context=True, aliases=['table', 'tab', 't'])
     async def tables(self, ctx: commands.Context):
         """
         Create or delete tables
@@ -136,8 +136,8 @@ class Tables:
         """
         await self.show_all_tables(ctx)
     
-    @tables.command(pass_context=True, usage="<table> [item(s)]")
-    async def add(self, ctx, table_name: str, *, items=None):
+    @tables.command(pass_context=True, usage="<table> <item(s)>", aliases=['create'])
+    async def new(self, ctx, table_name: str, *, items: str):
         """
         Create a new table
         """
@@ -173,7 +173,7 @@ class Tables:
         self.say(message, "Created table " + new_table.print_name())
         await self.say_message(message)
     
-    @tables.command(pass_context=True, name='del', usage="<table>")
+    @tables.command(pass_context=True, name='deltable', usage="<table>", aliases=['deltab'])
     async def _del(self, ctx:commands.Context, table: str):
         """
         Deletes a table
@@ -262,40 +262,7 @@ class Tables:
     
     # tab
 
-    @commands.group(pass_context=True, aliases=['table'])
-    async def tab(self, ctx: commands.Context):
-        """
-        Roll or modify a table
-        
-        When adding items to tables, use the following format
-
-        I recommend using this google sheet to help create
-        a table: https://docs.google.com/spreadsheets/d/1A5Yo9XGMekLBUP8MYf-I-ZilmH-A1rbPd6SfUJZRCdU/edit?usp=sharing
-
-        The format of the cells are as follows:
-        
-        | Weight |      Value       |
-        |--------|------------------|
-        |      2 | Armorer          |
-        |      2 | Bowyer/fletcher  |
-        |      6 | Farmer/gardener  |
-        |      4 | Fisher (netting) |
-
-
-        the csv format would become:
-        
-        2:Armorer
-        2:Bowyer/fletcher
-        6:Farmer/gardener
-        4:Fisher (netting)
-
-        Excel uses tab seperated values which discord does not particularly like.
-        All other formats should work.
-        """
-        # If there were no arguments, list the tables
-        await self.show_all_tables(ctx)
-
-    @tab.command(pass_context=True, usage='<table>')
+    @tables.command(pass_context=True, usage='<table>')
     async def show(self, ctx: commands.Context, table_name: str):
         """
         Show all the items in a table.
@@ -315,6 +282,12 @@ class Tables:
         messages = list()
         if table is not None:
             self.say(message, table.print_name() + ' `(1-{} [1d{}])`'.format(len(table.getItems()), table.get_roll_sides()))
+
+
+            if len(table.percentiles) is 0:
+                self.say(message, "There is nothing here yet.")
+                await self.say_message(message)
+                return
 
             # Don't display the contents of the table if it is hidden and the user is not authorized
             if not table.hidden or user.checkPermissions(ctx, table):
@@ -348,7 +321,7 @@ class Tables:
         for m in messages:
             await self.bot.send_message(ctx.message.author, m)
     
-    @tab.command(pass_context=True, usage='<table> [value]')
+    @tables.command(pass_context=True, usage='<table> [value]')
     async def roll(self, ctx: commands.Context, table_name: str, value=None):
         """
         Roll a value for the table, if you rolled a value, you may enter the value you rolled.
@@ -403,7 +376,7 @@ class Tables:
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
 
-    @tab.command(pass_context=True, name='add', usage='<table> <item(s)>')
+    @tables.command(pass_context=True, name='add', usage='<table> <item(s)>')
     async def tab_add(self, ctx: commands.Context, table_name: str, *, items):
         """
         Add items to the table
@@ -416,7 +389,7 @@ class Tables:
             return
         session = server.createSession()
         data = server.getData(session)
-        user = server.get_user(ctx, session)
+        user = self.get_user(ctx, session)
 
         table = self.get_table(ctx, message, session, table_name.lower())
 
@@ -436,7 +409,7 @@ class Tables:
         
         await self.say_message(message)
 
-    @tab.command(pass_context=True, usage='<table> <index> <item(s)>')
+    @tables.command(pass_context=True, usage='<table> <index> <item(s)>')
     async def insert(self, ctx: commands.Context, table_name: str, index: int, *, items):
         """
         Insert items into the table at a given position
@@ -477,7 +450,7 @@ class Tables:
         
         await self.say_message(message)
 
-    @tab.command(pass_context=True, name='del', usage='<table> <index> [number]')
+    @tables.command(pass_context=True, name='del', usage='<table> <index> [number]', aliases=['rm'])
     async def tab_del(self, ctx: commands.Context, table_name: str, index: int, num: int = 1):
         """
         Delete a (number of) item(s) from the table
@@ -515,7 +488,7 @@ class Tables:
         
         await self.say_message(message)
 
-    @tab.command(pass_context=True, usage='<table> <index> <item(s)>')
+    @tables.command(pass_context=True, usage='<table> <index> <item(s)>')
     async def replace(self, ctx: commands.Context, table_name: str, index: int, *, items):
         """
         Replace the content of the item(s) starting at the given index
@@ -544,7 +517,7 @@ class Tables:
                         value=p[1]
                     ) for p in csv]
 
-                    start_index = table.percentiles.index(table.getItems()[index])
+                    start_index = table.percentiles.index(table.getItems()[index - 1])
                     end_index = start_index + len(percs)
 
                     table.percentiles[slice(start_index,end_index)] = percs
@@ -556,7 +529,7 @@ class Tables:
 
         await self.say_message(message)
 
-    @tab.command(pass_context=True, usage='<table>')
+    @tables.command(pass_context=True, usage='<table>')
     async def clear(self, ctx: commands.Context, table_name: str):
         """
         Delete all the items in the table

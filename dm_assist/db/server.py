@@ -308,7 +308,7 @@ class Table(Base):
             percentile.append((string, perc.value))
             max_width = max(max_width, len(string))
         
-        return ['{0: >{width}}  {1}'.format(*p, width=max_width) for p in percentile]
+        return ['{0: >{width}}.  {1}'.format(*p, width=max_width) for p in percentile]
 
     def print_name(self):
         desc = ' ({})'.format(self.desc) if self.desc else ''
