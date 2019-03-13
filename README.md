@@ -1,3 +1,4 @@
+[![CodeFactor](https://www.codefactor.io/repository/github/ttocsneb/discorddicebot/badge)](https://www.codefactor.io/repository/github/ttocsneb/discorddicebot)
 # Misaka-Mikoto-Meme-Machine-100-567
 Read the box
 
