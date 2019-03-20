@@ -8,6 +8,9 @@ import signal
 
 from . import config
 from .config import config as conf
+
+from . import db
+
 from .bot import Bot
 
 _logger = logging.getLogger(__name__)

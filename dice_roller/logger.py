@@ -15,9 +15,11 @@ root_logger = logging.getLogger()
 def setLogLevel(lvl):
     root_logger.setLevel(lvl)
 
+
 log_formatter = logging.Formatter(
-    '[%(asctime)s: %(name)s (%(levelname)s)] %(message)s',
-    datefmt='%m/%d/%Y %I:%M:%S %p'  # Uses time.strftime format: https://docs.python.org/3.5/library/time.html#time.strftime
+    '%(levelname)-5.5s [%(asctime)s: %(name)s] %(message)s',
+    datefmt='%m/%d/%Y %I:%M:%S %p' 
+    # Uses time.strftime format: https://docs.python.org/3.5/library/time.html#time.strftime
 )
 
 # Setup the file logger

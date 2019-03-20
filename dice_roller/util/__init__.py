@@ -22,6 +22,6 @@ def format_name(name: str) -> str:
     Capitalize every word in the given string.
     For some reason capitalize only capitalizes the first letter.
 
-    This capitallizes every word.
+    This capitalizes every word.
     """
     return ' '.join([w.capitalize() for w in name.split(' ')])

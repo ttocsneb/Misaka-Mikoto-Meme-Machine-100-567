@@ -1,4 +1,4 @@
-from dm_assist import serve
+from . import serve
 
 # __main__.py is run when the package is run directly: python dm_assist
 
