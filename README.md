@@ -1,4 +1,6 @@
+[![Build Status](https://travis-ci.com/ttocsneb/discordDiceBot.svg?branch=master)](https://travis-ci.com/ttocsneb/discordDiceBot)
 [![CodeFactor](https://www.codefactor.io/repository/github/ttocsneb/discorddicebot/badge)](https://www.codefactor.io/repository/github/ttocsneb/discorddicebot)
+
 # Discord Dice Roller Bot
 
 This bot is still in early alpha stages of development and so an invite link is not yet available.  If you would still like to try out this bot, you can download and install the software.
