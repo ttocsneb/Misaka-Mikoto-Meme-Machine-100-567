@@ -35,7 +35,9 @@ class RollStat(Base):
     value = Column(String())
 
     def __repr__(self):
-        return "<RollStat(name='{}', value='{}')>".format(self.name, self.value)
+        return "<RollStat(name='{}', value='{}')>".format(
+            self.name, self.value)
+
 
 class Stats(collections.MutableMapping):
 
@@ -47,14 +49,14 @@ class Stats(collections.MutableMapping):
             if stat.name == key:
                 return stat
         raise KeyError
-    
+
     def __setitem__(self, key, value):
         try:
             stat = self[key]
             stat.value = value
         except KeyError:
             data = inspect(self._user).session.query(Data).first()
-            
+
             stat = Stat(id=data.getNewId())
             stat.name = key
             stat.value = value
@@ -64,11 +66,11 @@ class Stats(collections.MutableMapping):
 
     def __len__(self):
         return len(self._user.stats)
-    
+
     def __iter__(self):
         for stat in self._user.stats:
             yield stat.name
-    
+
     def __delitem__(self, key):
         stat = self[key]
         self._user.stats.remove(stat)
@@ -85,7 +87,7 @@ class User(Base):
 
     def getStats(self):
         return Stats(self)
-    
+
     def checkPermissions(self, ctx, obj_w_creator=None):
         """
         Check if the user has permission to do a thing
@@ -99,20 +101,20 @@ class User(Base):
         if obj_w_creator is not None:
             if ctx.message.author.id == str(obj_w_creator.creator_id):
                 return True
-        
+
         # Check if the user is a global moderator
         if ctx.message.author.id in config.config.mods:
             return True
-        
+
         member = self.getMember(ctx)
         if member is not None:
             try:
                 data = inspect(self).session.query(Data).first()
-                
+
                 # Check if the user is a server moderator
                 if data.mod in [role.id for role in member.roles]:
                     return True
-                
+
                 # Check if the user has permission to manage the server
                 return member.server_permissions.manage_server
             except:
@@ -123,18 +125,22 @@ class User(Base):
         """
         Get the member from the active server.
 
-        if the context is from the active server, then ctx.message.author will be returned
+        if the context is from the active server, then ctx.message.author will
+        be returned
         """
         import discord
 
-        if ctx.message.channel.type in [discord.ChannelType.private, discord.ChannelType.group]:
+        if ctx.message.channel.type in [discord.ChannelType.private,
+                                        discord.ChannelType.group]:
             data = inspect(self).session.query(Data).first()
             server_id = str(data.id)
 
-            server = next((server for server in ctx.bot.servers if server.id == server_id), None)
+            server = next((server for server in ctx.bot.servers
+                           if server.id == server_id), None)
 
             if server is not None:
-                return next((user for user in server.users if user.id == ctx.message.author.id), None)
+                return next((user for user in server.users
+                             if user.id == ctx.message.author.id), None)
             return None
         return ctx.message.author
 
@@ -157,13 +163,15 @@ class Equation(Base):
     def printName(self):
         name = str(self.name) + ":" + str(self.id)
         if self.params > 0:
-            name += "({})".format(", ".join([str(i) for i in range(self.params)]))
+            name += "({})".format(", ".join([str(i) for i in range(
+                self.params)]))
         if self.desc:
             name += ' (' + self.desc + ')'
         return name
 
     def __repr__(self):
-        return "<Equation(name='%s', equation='%s')>" % (self.name, self.equation)
+        return "<Equation(name='%s', equation='%s')>" % \
+            (self.name, self.equation)
 
 
 class Percentile(Base):
@@ -177,7 +185,8 @@ class Percentile(Base):
     value = Column(String())
 
     def __repr__(self):
-        return "<Percentile(weight={}, value='{}')>".format(self.weight, self.value)
+        return "<Percentile(weight={}, value='{}')>".format(
+            self.weight, self.value)
 
 
 class TableItems(collections.MutableSequence):
@@ -195,7 +204,7 @@ class TableItems(collections.MutableSequence):
         # Process negative indices
         if index < 0:
             return self[len(self) - index]
-        
+
         # Get the item
         total = 0
         for i in self._table.percentiles:
@@ -203,7 +212,7 @@ class TableItems(collections.MutableSequence):
             if index < total:
                 return i
         raise IndexError
-    
+
     def __iter__(self):
         index = 0
         total = 0
@@ -216,7 +225,7 @@ class TableItems(collections.MutableSequence):
                 yield value
             except IndexError:
                 return
-    
+
     def __setitem__(self, index, value):
         # Process Slices
         if isinstance(index, slice):
@@ -226,11 +235,13 @@ class TableItems(collections.MutableSequence):
             self._table.percentiles[slice(start, stop, o_step)] = value
             return
 
-        self._table.percentiles[self._table.percentiles.index(self[index])] = value
+        self._table.percentiles[
+            self._table.percentiles.index(self[index])] = value
 
     def insert(self, index, value):
-        self._table.percentiles.insert(self._table.percentiles.index(self[index]))
-    
+        self._table.percentiles.insert(self._table.percentiles.index(
+            self[index]))
+
     def __delitem__(self, index):
         # Process Slices
         if isinstance(index, slice):
@@ -271,7 +282,7 @@ class Table(Base):
 
         items = self.getItems()
 
-        # These are all values that 
+        # These are all values that
         sides = (1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 24, 30, 40, 60, 100, 120)
         size = len(items)
 
@@ -304,8 +315,9 @@ class Table(Base):
             total += perc.weight
             percentile.append((string, perc.value))
             max_width = max(max_width, len(string))
-        
-        return ['{0: >{width}}.  {1}'.format(*p, width=max_width) for p in percentile]
+
+        return ['{0: >{width}}.  {1}'.format(*p, width=max_width)
+                for p in percentile]
 
     def print_name(self):
         desc = ' ({})'.format(self.desc) if self.desc else ''

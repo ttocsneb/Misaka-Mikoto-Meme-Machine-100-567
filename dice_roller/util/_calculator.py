@@ -5,6 +5,7 @@ import collections
 from . import dice, BadEquation
 from .. import db
 
+
 def isTrue(a):
     """
     Checks if a number is considered true
@@ -17,7 +18,7 @@ class FunctionDict(collections.Mapping):
     def __init__(self, *args, **kwargs):
         self.dict = dict(*args, **kwargs)
         self._func = None
-    
+
     def setFunction(self, function):
         self._func = function
 
@@ -32,10 +33,10 @@ class FunctionDict(collections.Mapping):
             else:
                 return self._func[key]
         raise KeyError
-    
+
     def __iter__(self):
         return iter(self.dict)
-    
+
     def __len__(self):
         return len(self._func)
 
@@ -44,7 +45,7 @@ class Calculator:
     """
     This parses textual equations, and calculates the result.
 
-    If you want to add your own functions, all you need to do is to set 
+    If you want to add your own functions, all you need to do is to set
     its precedence in the precedence variable, set the number of operands
     needed if it has more or less than 2, and create the function as a lambda
     in the functions dict.
@@ -56,13 +57,14 @@ class Calculator:
         '<': 1, '>': 1, '=': 1, '<>': 1, '<=': 1, '>=': 1, 'or': 1, 'and': 1,
         '+': 2, '-': 2,
         '*': 3, '/': 3,
-        '^':4, '%':4,
+        '^': 4, '%': 4,
         'd': 5,
         'round': 6, 'max': 6, 'min': 6, 'floor': 6, 'ceil': 6,
         'adv': 6, 'dis': 6, 'top': 6, 'bot': 6, 'if': 6
     })
-    
-    # A function by default has 2 arguments, if it does not, list the number required here.
+
+    # A function by default has 2 arguments, if it does not, list the number
+    # required here.
     function_length = FunctionDict({
         'round': 1,
         'adv': 1,
@@ -85,12 +87,12 @@ class Calculator:
         '%': lambda a, b: a % b,
 
         # Boolean functions
-        '<':  lambda a, b: 1 if a < b else 0,
+        '<': lambda a, b: 1 if a < b else 0,
         '<=': lambda a, b: 1 if a <= b else 0,
         '>=': lambda a, b: 1 if a >= b else 0,
-        '>':  lambda a, b: 1 if a > b else 0,
+        '>': lambda a, b: 1 if a > b else 0,
         '<>': lambda a, b: 1 if a != b else 0,
-        '=':  lambda a, b: 1 if a == b else 0,
+        '=': lambda a, b: 1 if a == b else 0,
         'and': lambda a, b: 1 if isTrue(a) and isTrue(b) else 0,
         'or': lambda a, b: 1 if isTrue(a) or isTrue(b) else 0,
         'if': lambda a, b, c: b if isTrue(a) else c,
@@ -100,7 +102,8 @@ class Calculator:
         'adv': lambda a: dice.roll_top(round(a), 1, 2),
         'dis': lambda a: dice.roll_top(round(a), 1, 2, False),
         'top': lambda a, b, c: dice.roll_top(round(b), round(c), round(a)),
-        'bot': lambda a, b, c: dice.roll_top(round(b), round(c), round(a), False),
+        'bot': lambda a, b, c: dice.roll_top(round(b), round(c), round(a),
+                                             False),
         'round': lambda a: round(a),
         'max': lambda a, b: max(a, b),
         'min': lambda a, b: min(a, b),
@@ -110,10 +113,11 @@ class Calculator:
 
     def __init__(self):
         self._strip_regex = re.compile(r"\s+")
-        self._parse_regex = re.compile(r"((^|(?<=[^\d)]))[-][\d.]+|[\d.]+|[a-z]+(:[\d]+)?|:[\d]+|[<>=]+|[\W])")
+        self._parse_regex = re.compile(
+            r"((^|(?<=[^\d)]))[-][\d.]+|[\d.]+|[a-z]+(:[\d]+)?|:[\d]+|[<>=]+|[\W])")
         self._check_vars_regex = re.compile(r"{(.*?)}")
         # _parse_regex info
-        # 
+        #
         # (^|(?<=[^\w)]))[-][\d.]+
         # Negative Number
         #   - (^|(?<=[^\w)]))
@@ -122,19 +126,19 @@ class Calculator:
         #     Catch operator
         #   - [\d.]+
         #     Catch Decimal number
-        # 
+        #
         # [\d.]+
         # Decimal Numbers
-        # 
+        #
         # [a-z]+(:[\d]+)?
         # Functions
-        # 
+        #
         # :[\d]+
         # Function ids
-        # 
+        #
         # [<>=]+
         # Boolean operators
-        # 
+        #
         # [\W]
         # Operators
 
@@ -166,10 +170,12 @@ class Calculator:
             try:
                 number = float(i)
                 equation.append(number)
-            except ValueError:  # If the item is not a number, it must be an operator
+            except ValueError:
+                # If the item is not a number, it must be an operator
                 # Check if the item is the end of a parenthesis
                 if i == ')':
-                    # If so, pop all the operands up to the accompanying parentheses
+                    # If so, pop all the operands up to the accompanying
+                    # parentheses
                     num_parens -= 1
                     while len(stack) > 0:
                         pop = stack.pop()
@@ -193,23 +199,26 @@ class Calculator:
                         if not broken:
                             raise BadEquation("Improper use of commas.")
                     else:
-                        # If the precedence of the stack is greater than the current precedence, than pop until it's not
-                        while len(stack) > 0 and self.__class__.precedence.get(i, 0) <= self.__class__.precedence.get(stack[-1], 0):
+                        # If the precedence of the stack is greater than the
+                        # current precedence, than pop until it's not
+                        while len(stack) > 0 and self.__class__.precedence.get(
+                                i, 0) <= self.__class__.precedence.get(
+                                stack[-1], 0):
                             pop = stack.pop()
                             if pop == '(':
                                 raise BadEquation("Mismatched parentheses.")
                             equation.append(pop)
                     # Add the operator to the stack
                     stack.append(i)
-        
+
         if num_parens is not 0:
             raise BadEquation("Mismatched parentheses.")
-        
+
         while len(stack) > 0:
             equation.append(stack.pop())
-        
+
         return equation
-    
+
     def _calculate_equation(self, equation: list) -> float:
         """
         calculate a Shunting Yard equation.
@@ -234,10 +243,10 @@ class Calculator:
                     raise BadEquation("Invalid Function **{}**".format(i))
                 except Exception as e:
                     raise BadEquation(str(e))
-        
+
         if len(stack) is not 1:
             raise BadEquation("Invalid number of operands.")
-        
+
         return stack.pop()
 
     def parse_args(self, equation, session, user, args=None):
@@ -260,7 +269,8 @@ class Calculator:
                 equation = equation.format(*args, **stats)
             except KeyError:
                 from string import Formatter
-                params = [fn for _, fn, _, _ in Formatter().parse(equation) if fn is not None]
+                params = [fn for _, fn, _, _ in Formatter().parse(equation)
+                          if fn is not None]
 
                 missing_keys = list(set(params).difference(stats.keys()))
 
@@ -275,7 +285,8 @@ class Calculator:
 
         return equation
 
-    def parse_equation(self, string: str, session = None, user=None, _recursed=False, _repeats=None) -> float:
+    def parse_equation(self, string: str, session=None, user=None,
+                       _recursed=False, _repeats=None) -> float:
         """
         Parse a human readable equation.
 
@@ -285,20 +296,20 @@ class Calculator:
         + - * / ^ % d ( ) round(x)
         ```
 
-        Note: d is used for rolling dice where the firstoperand is the number of dice
-        to roll, and the second is the number of faces.
-        
+        Note: d is used for rolling dice where the firstoperand is the number
+        of dice to roll, and the second is the number of faces.
+
         an example of an equation:
 
         ```
         ((5 * 4 + 3 / 6) % 6)d6 = 2d6
         ```
 
-        If there is a formatting problem with the given equation, a BadEquation error
-        will be thrown.
+        If there is a formatting problem with the given equation, a BadEquation
+        error will be thrown.
 
-        The session parameter is optional, and is an instance of a server object.
-        Using the session parameter allows the use of custom equations.
+        The session parameter is optional, and is an instance of a server
+        object. Using the session parameter allows the use of custom equations.
         """
 
         if _recursed > 20:
@@ -314,36 +325,39 @@ class Calculator:
                 except KeyError:
                     pass
                 if user is not None:
-                    eq = db.Server.get_from_string(session, db.server.Equation, eq_name, user.id)
+                    eq = db.Server.get_from_string(session, db.server.Equation,
+                                                   eq_name, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq
                     return eq.params
-            
+
             def getEquationFunction(eq_name):
                 try:
                     eq = repeats[eq_name]
                 except KeyError:
                     pass
                 if user is not None:
-                    eq = db.Server.get_from_string(session, db.server.Equation, eq_name, user.id)
+                    eq = db.Server.get_from_string(session, db.server.Equation,
+                                                   eq_name, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq
-                
+
                 return lambda *args: self.parse_equation(
                     self.parse_args(eq.equation, session, user, args),
                     session,
                     user,
                     _recursed=_recursed + 1)
-            
+
             def getEquationPrecedence(eq_name):
                 try:
                     eq = repeats[eq_name]
                 except KeyError:
                     pass
                 if user is not None:
-                    eq = db.Server.get_from_string(session, db.server.Equation, eq_name, user.id)
+                    eq = db.Server.get_from_string(session, db.server.Equation,
+                                                   eq_name, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq

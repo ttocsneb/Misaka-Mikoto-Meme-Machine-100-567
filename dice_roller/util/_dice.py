@@ -31,14 +31,14 @@ class Dice:
     @property
     def low(self):
         return self._low
-    
+
     @property
     def rolled_dice(self):
         """
         This is a log of all the dice rolled.
 
-        To enable the logging of dice, the variable logging_enabled 
-        should be set to True. That way, any unintentional dice rolls 
+        To enable the logging of dice, the variable logging_enabled
+        should be set to True. That way, any unintentional dice rolls
         will not be logged.
 
         Reading from rolled_dice will clear the list.
@@ -60,11 +60,11 @@ class Dice:
             self._rolled_dice.append(value)
 
     def _roll(self, sides: int) -> int:
-        if sides is 1:
+        if sides == 1:
             self.__log_roll((1, 1))
             return 1
 
-        if 120 % sides is 0:
+        if 120 % sides == 0:
             rand, self._low = truerandom.randint(120, use_true_random=True)
             die = rand % sides + 1
             self.__log_roll((die, sides))
@@ -72,7 +72,7 @@ class Dice:
         die = truerandom.randint(sides, use_true_random=False)[0]
         self.__log_roll((die, sides))
         return die
-    
+
     def roll(self, sides: int) -> int:
         # "Authentically" roll percentile dice
         log10 = math.log10(sides)
@@ -83,12 +83,11 @@ class Dice:
                 roll = self._roll(10)
                 roll = 0 if roll is 10 else roll
                 result += 10 ** i * roll
-            if result is 0:
+            if result == 0:
                 result = sides
             return result
 
         return self._roll(sides)
-
 
     def roll_sum(self, sides: int, times=1) -> (int, int, int):
         """
@@ -121,8 +120,9 @@ class Dice:
 
         :returns list: a list of all the rolled dice
         """
-        return [self.roll(sides) for _ in range(min(times, self.__class__.MAX_ROLLS))]
-    
+        return [self.roll(sides)
+                for _ in range(min(times, self.__class__.MAX_ROLLS))]
+
     def roll_top(self, sides: int, top_rolls=3, times=4, best=True) -> int:
         """
         Roll a number of dice, only counting the highest values.
@@ -153,7 +153,7 @@ class Dice:
 
         if top_rolls is times:
             return self.roll_sum(sides, times)[0]
-        
+
         top_rolls = [0 if best else sides + 1] * top_rolls
 
         rolls = self.roll_dice(sides, times)
@@ -161,11 +161,13 @@ class Dice:
         for roll in rolls:
             for i, top in enumerate(top_rolls):
                 if (roll > top and best) or (roll < top and not best):
-                    # Insert the new top roll, and pop the lowest current high roll
+                    # Insert the new top roll, and pop the lowest current high
+                    # roll
                     top_rolls.pop()
                     top_rolls.insert(i, roll)
 
-                    # The roll has been inserted, we don't need look for any other insertion points
+                    # The roll has been inserted, we don't need look for any
+                    # other insertion points
                     break
-        
+
         return sum(top_rolls)
