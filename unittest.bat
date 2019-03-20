@@ -3,7 +3,7 @@
 set VENV=venv\Scripts
 
 if EXIST %VENV% (
-    %VENV%\python.exe -m unittests
+    %VENV%\python.exe unittests
 ) else (
     echo No Virtualenv exists.  Create one in 'venv' then run 'install.bat'
     echo Use the command 'python virtualenv venv' to create a virtual environment

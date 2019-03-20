@@ -41,8 +41,8 @@ def get_url():
 
     base = config.get_main_option("url_dir")
     if not os.path.isabs(base):
-        dir = os.path.dirname(os.path.realpath(__file__))
-        base = os.path.join(dir, base)
+        di = os.path.dirname(os.path.realpath(__file__))
+        base = os.path.join(di, base)
 
     url = config.get_main_option("base_url") + os.path.join(base, url)
 

@@ -105,7 +105,7 @@ class Calculator:
         'max': lambda a, b: max(a, b),
         'min': lambda a, b: min(a, b),
         'floor': lambda a: math.floor(a),
-        'ceil': lambda a: math.floor(a)
+        'ceil': lambda a: math.ceil(a)
     })
 
     def __init__(self):
@@ -231,8 +231,9 @@ class Calculator:
                     # Process the function
                     stack.append(self.__class__.functions[i](*operands))
                 except KeyError:
-
                     raise BadEquation("Invalid Function **{}**".format(i))
+                except Exception as e:
+                    raise BadEquation(str(e))
         
         if len(stack) is not 1:
             raise BadEquation("Invalid number of operands.")

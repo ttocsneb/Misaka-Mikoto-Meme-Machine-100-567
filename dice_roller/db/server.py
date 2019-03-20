@@ -116,7 +116,7 @@ class User(Base):
                 # Check if the user has permission to manage the server
                 return member.server_permissions.manage_server
             except:
-                pass
+                return False
         return False
 
     def getMember(self, ctx):
@@ -135,11 +135,8 @@ class User(Base):
 
             if server is not None:
                 return next((user for user in server.users if user.id == ctx.message.author.id), None)
-            else:
-                return None
-
-        else:
-            return ctx.message.author
+            return None
+        return ctx.message.author
 
     def __repr__(self):
         return "<User(id='{}')>".format(self.id)

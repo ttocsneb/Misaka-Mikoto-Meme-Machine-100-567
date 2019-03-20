@@ -44,11 +44,11 @@ def params():
       author = 'Noobot9k, TheVoiceInsideYourHead, Benjamin Jacobs'
       url = 'https://github.com/ttocsneb/discordDiceBot'
 
-      packages = ['dm_assist']  # TODO: Change to dice_roller
+      packages = ['dice_roller']
 
       entry_points = {
             'console_scripts': [
-                  'dm_assist = dm_assist:serve'
+                  'dice_roller = dice_roller:serve'
             ]
       }
 

@@ -5,7 +5,7 @@ from .. import util
 import discord
 from discord.ext import commands
 
-from dm_assist.config import config
+from ..config import config
 
 from ..config import config
 from .. import db
