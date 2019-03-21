@@ -4,7 +4,7 @@ import re
 
 import alembic.config
 
-from ..config import config
+from ..config import config, config_dir
 
 from . import server, conf
 
@@ -12,7 +12,12 @@ from . import server, conf
 alembic_ini = os.path.abspath(
     os.path.join(os.path.dirname(__file__), 'alembic'))
 
-print(alembic_ini)
+
+def _get_db_path():
+    path = config.config.db_file
+    if not os.path.isabs(path):
+        return os.path.join(config_dir, path)
+    return path
 
 
 class Database:
@@ -49,7 +54,7 @@ class Server(Database):
 
         # Setup the data row
         session = self.createSession()
-        if session.query(server.Data).count() is 0:
+        if session.query(server.Data).count() == 0:
             data = server.Data(id=id, prefix=prefix, current_id=0)
             session.add(data)
             session.commit()
@@ -169,7 +174,7 @@ class Servers(Database):
 
 if not os.path.exists(config.config.db_file):
     os.makedirs(config.config.db_file)
-_servers = Servers('sqlite:///' + os.path.join(config.config.db_file,
+_servers = Servers('sqlite:///' + os.path.join(_get_db_path(),
                    'servers.db'))
 _dbs = dict()
 
@@ -179,14 +184,14 @@ def getDb(id):
     try:
         return _dbs[id]
     except KeyError:
-        file = os.path.join(config.config.db_file, str(id) + '.db')
+        file = os.path.join(_get_db_path(), str(id) + '.db')
         db = Server('sqlite:///' + file, id, config.config.prefix)
         _dbs[id] = db
 
         # Add the new server to servers db
         session = _servers.createSession()
         if session.query(conf.Server).filter(
-                conf.Server.id == id).count() is 0:
+                conf.Server.id == id).count() == 0:
             server = conf.Server(id=id, prefix=config.config.prefix)
             session.add(server)
             session.commit()

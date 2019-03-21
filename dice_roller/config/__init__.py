@@ -7,8 +7,8 @@ from ruamel import yaml
 from . import schemas
 
 
-__config_dir = dirname(dirname(dirname(__file__)))
-__config_file = os.path.join(__config_dir, 'config.yaml')
+config_dir = dirname(dirname(dirname(__file__)))
+__config_file = os.path.join(config_dir, 'config.yaml')
 VERSION = 3
 
 _logger = logging.getLogger(__name__)
