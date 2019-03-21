@@ -46,13 +46,16 @@ class Dice:
         for die in dice:
             if die[0] == 1 or die[0] == die[1] \
                     or die[1] == 1 \
-                    or str(die[0]) in config.lines.on_roll:
+                    or config.lines.on_roll.contains(die[0]):
                 one_liners.append(die)
 
-        if len(one_liners) is not 0:
+        if one_liners:
             one_liner = util.get_random_index(one_liners)
 
-            line = "[{li[0]}/{li[1]}]: ".format(li=one_liner)
+            if one_liner[1] is not None:
+                line = "[{li[0]}/{li[1]}]: ".format(li=one_liner)
+            else:
+                line = ''
 
             if one_liner[1] == 1 or one_liner[1] == 0:
                 return line + util.get_random_index(config.lines.dumb)
@@ -63,9 +66,9 @@ class Dice:
             if one_liner[0] == one_liner[1]:
                 return line + util.get_random_index(config.lines.crits)
 
-            if str(one_liner[0]) in config.lines.on_roll:
-                return line + util.get_random_index(
-                    config.lines.on_roll[str(one_liner[0])])
+            lines = config.lines.on_roll.getAll(one_liner[0])
+            if lines:
+                return line + util.get_random_index(lines)
 
     @staticmethod
     def say(messages, text):
@@ -148,7 +151,7 @@ class Dice:
         if len(dice) > 0:
             self.say(message, self.print_dice(dice))
             self.say(message, self.print_dice_one_liner(
-                dice + [(value, "sum")]))
+                dice + [(value, None)]))
 
         self.say(message, "**{}**".format(value))
         await self.send(message)

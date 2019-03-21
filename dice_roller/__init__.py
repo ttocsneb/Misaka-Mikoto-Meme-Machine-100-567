@@ -9,19 +9,18 @@ import signal
 from . import config
 from .config import config as conf
 
-from . import db
-
 from .bot import Bot
 
 _logger = logging.getLogger(__name__)
 
 bot = Bot()
 
+
 def create_token():
-    if conf.config.get('token') is None or conf.config.get('token') == 'Insert Token Here':
+    if conf.config.token is None or conf.config.token == 'Insert Token Here':
 
         _logger.error("No token exists!")
-        
+
         token = input("Enter Token (press enter to skip): ")
         if token == '':
             token = 'Insert Token Here'
@@ -29,7 +28,7 @@ def create_token():
         conf.config['token'] = token
 
         config.save()
-        
+
         if token == 'Insert Token Here':
             _logger.info("** insert the token the token in '{}' before starting the bot again **".format(os.path.relpath(config.__config_file)))
             raise SystemExit
@@ -55,6 +54,7 @@ def sigint_shutdown():
     finally:
         signal.signal(signal.SIGINT, original_sigint_handler)
 
+
 def serve(test=False, sql_file=None):
     
     _logger.info("Loading Token")
@@ -63,10 +63,9 @@ def serve(test=False, sql_file=None):
             create_token()
         except SystemExit:
             return
-    
+
     if not test:
         _logger.info("Starting Bot..")
         with sigint_shutdown():
             bot.setup()
             bot.run()
-        
