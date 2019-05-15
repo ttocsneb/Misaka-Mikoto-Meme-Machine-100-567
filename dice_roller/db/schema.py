@@ -2,6 +2,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Boolean, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.orderinglist import ordering_list
+from sqlalchemy import Table as Tab
 
 from . import data_models
 
@@ -16,14 +17,22 @@ class Stat(Base):
     name = Column(String(16))
     value = Column(String(45))
     calc = Column(Float)
+    group = Column(String(16), nullable=True)
 
     def getValue(self):
         if self.calc is not None:
             return self.calc
         return self.value
 
+    @property
+    def fullname(self):
+        if self.group is not None:
+            return "{}.{}".format(self.group, self.name)
+        return self.name
+
     def __repr__(self):
-        return "<Stat(name='{}', value='{}')>".format(self.name, self.value)
+        return "<Stat(name='{}', value='{}')>".format(
+            self.fullname, self.value)
 
 
 class RollStat(Base):
@@ -32,10 +41,17 @@ class RollStat(Base):
     serverid = Column(Integer, ForeignKey("server.id"))
     name = Column(String(16))
     value = Column(String(45))
+    group = Column(String(16), nullable=True)
+
+    @property
+    def fullname(self):
+        if self.group is not None:
+            return "{}.{}".format(self.group, self.name)
+        return self.name
 
     def __repr__(self):
         return "<RollStat(name='{}', value='{}')>".format(
-            self.name, self.value)
+            self.fullname, self.value)
 
 
 class TableItem(Base):
@@ -96,7 +112,7 @@ class Equation(Base):
             self.name, self.value)
 
 
-server_user_table = Table(
+server_user_table = Tab(
     'server-user', Base.metadata,
     Column('server_id', Integer, ForeignKey('server.id')),
     Column('user_id', Integer, ForeignKey('user.id'))
@@ -112,8 +128,8 @@ class User(Base):
 
     stats_list = relationship(Stat, order_by="Stat.name",
                               cascade="all, delete, delete-orphan")
-    equations = relationship(Equation, back_populates='creator')
-    tables = relationship(Table, back_populates='creator')
+    equations = relationship(Equation, backref='creator')
+    tables = relationship(Table, backref='creator')
 
     stats = property(
         lambda self: data_models.Stats(self)
