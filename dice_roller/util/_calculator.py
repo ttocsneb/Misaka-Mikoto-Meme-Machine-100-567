@@ -54,6 +54,7 @@ class Calculator:
 
     # Lower numbers mean a lower precedence (it is less important)
     precedence = FunctionDict({
+        'true': 1, 'false': 1,
         '<': 1, '>': 1, '=': 1, '<>': 1, '<=': 1, '>=': 1, 'or': 1, 'and': 1,
         '+': 2, '-': 2,
         '*': 3, '/': 3,
@@ -73,7 +74,9 @@ class Calculator:
         'bot': 3,
         'floor': 1,
         'ceil': 1,
-        'if': 3
+        'if': 3,
+        'true': 0,
+        'false': 0
     })
 
     # All the functions are defined here as lambdas.
@@ -108,7 +111,12 @@ class Calculator:
         'max': lambda a, b: max(a, b),
         'min': lambda a, b: min(a, b),
         'floor': lambda a: math.floor(a),
-        'ceil': lambda a: math.ceil(a)
+        'ceil': lambda a: math.ceil(a),
+
+        # Constants
+        'true': lambda: 1,
+        'false': lambda: 0
+
     })
 
     def __init__(self):
@@ -325,8 +333,8 @@ class Calculator:
                 except KeyError:
                     pass
                 if user is not None:
-                    eq = db.Server.get_from_string(session, db.server.Equation,
-                                                   eq_name, user.id)
+                    eq = db.database.get_from_string(
+                        session, db.schema.Equation, eq_name, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq
@@ -338,8 +346,8 @@ class Calculator:
                 except KeyError:
                     pass
                 if user is not None:
-                    eq = db.Server.get_from_string(session, db.server.Equation,
-                                                   eq_name, user.id)
+                    eq = db.database.get_from_string(
+                        session, db.schema.Equation, eq_name, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq
@@ -356,8 +364,8 @@ class Calculator:
                 except KeyError:
                     pass
                 if user is not None:
-                    eq = db.Server.get_from_string(session, db.server.Equation,
-                                                   eq_name, user.id)
+                    eq = db.database.get_from_string(
+                        session, db.schema.Equation, eq_name, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq

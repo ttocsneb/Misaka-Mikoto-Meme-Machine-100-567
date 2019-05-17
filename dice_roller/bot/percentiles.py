@@ -24,9 +24,9 @@ class Tables:
         if message:
             await self.bot.say(message)
 
-    def get_table(self, ctx, message, session, name: str) -> db.server.Table:
-        table = db.Server.get_from_string(session, db.server.Table, name,
-                                          ctx.message.author.id)
+    def get_table(self, user, message, session, name: str) -> db.schema.Table:
+        table = db.database.get_from_string(
+            session, db.schema.Table, name, user.active_server_id, user.id)
 
         if table is not None:
             return table
@@ -34,11 +34,10 @@ class Tables:
         # Could not find table
         self.say(message, "Could not find `{}`".format(name))
 
-    def get_server(self, ctx: commands.Context, message=None) -> db.Server:
-        # If the message is not part of a server, get the active server from
-        # the author
+    def get_server(self, ctx: commands.Context, session, message=None,
+                   commit=True) -> db.schema.Server:
 
-        server = db.getDbFromCtx(ctx)
+        server = db.database.getServerFromCtx(session, ctx, commit=commit)[0]
         if server is None:
             if message is not None:
                 self.say(message,
@@ -46,8 +45,17 @@ class Tables:
                 self.say(message, "Activate the server you want to use first.")
         return server
 
-    def get_user(self, ctx: commands.Context, session) -> db.server.User:
-        return db.Server.getUser(session, ctx.message.author.id)
+    def get_user(self, ctx: commands.Context, session, message=None,
+                 commit=True) -> db.schema.User:
+        user = db.database.getUserFromCtx(
+            session, ctx, commit=commit)[0]
+        if user is None and message is not None:
+            self.say(
+                message,
+                "You aren't registered with any server and can't register here."
+            )
+            self.say(message, "Retry the command in a server.")
+        return user
 
     def parse_csv(self, messages, string: str) -> list():
         from io import StringIO
@@ -59,8 +67,8 @@ class Tables:
             dialect = csv.Sniffer().sniff(buffer.read(1024))
         except csv.Error:
             # default to excel dialects
-            self.say(messages, "I had trouble reading your csv, double check"
-                     + "the values to make sure I didn't make any mistakes")
+            self.say(messages, "I had trouble reading your csv, double check" +
+                     "the values to make sure I didn't make any mistakes")
             dialect = csv.excel()
         buffer.seek(0)
 
@@ -84,18 +92,20 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx, message)
+        session = db.database.createSession()
+        server = self.get_server(ctx, session, message, commit=False)
+        user = self.get_user(ctx, session)
         if server is None:
             await self.say_message(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
 
-        your_tables = session.query(db.server.Table).filter(
-            db.server.Table.creator_id == user.id
+        your_tables = session.query(db.schema.Table).filter(
+            db.schema.Table.creator_id == user.id,
+            db.schema.Table.server_id == server.id
         ).all()
-        other_tables = session.query(db.server.Table).filter(
-            db.server.Table.creator_id != user.id
+        other_tables = session.query(db.schema.Table).filter(
+            db.schema.Table.creator_id != user.id,
+            db.schema.Table.server_id == server.id
         ).all()
 
         if len(your_tables) + len(other_tables) == 0:
@@ -154,15 +164,13 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, commit=False)
+        if user is None:
             await self.say_message(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
-        data = server.getData(session)
 
-        new_table = db.server.Table(id=data.getNewId())
+        new_table = db.schema.Table(server_id=user.active_server_id)
         new_table.creator_id = user.id
         new_table.name = table_name.lower()
         new_table.desc = ''
@@ -171,12 +179,11 @@ class Tables:
         percentiles = None
         if items is not None:
             table = self.parse_csv(message, items)
-            percentiles = [db.server.Percentile(
-                id=data.getNewId(),
+            percentiles = [db.schema.TableItem(
                 weight=p[0],
                 value=p[1]) for p in table]
 
-            new_table.percentiles.extend(percentiles)
+            new_table.items_list.extend(percentiles)
         session.add(new_table)
         session.commit()
 
@@ -192,14 +199,13 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, commit=False)
+        if user is None:
             await self.say_message(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
 
-        table = self.get_table(ctx, message, session, table.lower())
+        table = self.get_table(user, message, session, table.lower())
         if table is not None:
             if user.checkPermissions(ctx, table):
                 self.say(message, "Deleted" + table.print_name())
@@ -207,8 +213,9 @@ class Tables:
                 session.delete(table)
                 session.commit()
             else:
-                self.say(message,
-                         "You don't have the permissions to delete that table!"
+                self.say(
+                    message,
+                    "You don't have the permissions to delete that table!"
                 )
 
         await self.say_message(message)
@@ -221,14 +228,13 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, commit=False)
+        if user is None:
             await self.say_message(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
 
-        table = self.get_table(ctx, message, session, table.lower())
+        table = self.get_table(user, message, session, table.lower())
 
         if table is not None:
             if user.checkPermissions(ctx, table):
@@ -249,27 +255,26 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, commit=False)
+        if user is None:
             await self.say_message(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
 
-        table = self.get_table(ctx, message, session, table.lower())
+        table = self.get_table(user, message, session, table.lower())
         if table is not None:
             if user.checkPermissions(ctx, table):
                 hidden = hide[0].lower()
 
                 # Check if the first character is true, false, yes, no, 1, 0
-                if hidden not in 'tfyn01':
-                    self.say(message, "You must say yes or no")
+                if hidden not in 'tfynhs01':
+                    self.say(message, "You must say (yes|hide) or (no|show)")
                 else:
                     # Convert the string into a bool
-                    table.hidden = hidden in 'ty1'
+                    table.hidden = hidden in 'tyh1'
                     session.commit()
                     self.say(message, "Changed {} to be {}".format(
-                        table.print_name(), "secret"
+                        table.print_name(), "hidden"
                         if table.hidden else "public"))
             else:
                 self.say(message,
@@ -287,14 +292,16 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, commit=True)
+        if user is None:
             await self.say_message(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
 
-        table = self.get_table(ctx, message, session, table_name.lower())
+        table = self.get_table(user, message, session, table_name.lower())
+
+        import discord
+        is_dm = ctx.message.channel.type == discord.ChannelType.private
 
         messages = list()
         if table is not None:
@@ -324,9 +331,17 @@ class Tables:
                                             '```')
                             mess = [m]
                     messages.append('```markdown\n' + '\n'.join(mess) + '```')
-                    self.say(message, 'The list is too long, I sent it to you')
+                    if not is_dm:
+                        self.say(
+                            message,
+                            'The list is too long, I DM\'d it to you'
+                        )
                 elif table.hidden:
-                    self.say(message, 'The list is hidden, I sent it to you to protect its privacy.')
+                    if not is_dm:
+                        self.say(
+                            message,
+                            'The list is hidden, I DM\'d it to you to protect its privacy.'
+                        )
                     messages.append('```markdown\n' + '\n'.join(table_cont) +
                                     '```')
                     messages = ['\n'.join(messages)]
@@ -335,7 +350,9 @@ class Tables:
                                    '```')
                     messages = list()
             else:
-                self.say(message, "```This table is hidden, you aren't allowed to see all the items inside```")
+                self.say(
+                    message,
+                    "```This table is hidden, you aren't allowed to see all the items inside```")
 
         await self.say_message(message)
 
@@ -350,13 +367,13 @@ class Tables:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, commit=True)
+        if user is None:
             await self.say_message(message)
             return
-        session = server.createSession()
 
-        table = self.get_table(ctx, message, session, table_name.lower())
+        table = self.get_table(user, message, session, table_name.lower())
 
         if table is not None:
             max_val = len(table.getItems())
@@ -387,12 +404,12 @@ class Tables:
                 dice = util.dice.rolled_dice
                 from .dice import Dice
                 self.say(message, Dice.print_dice(dice))
-            
+
             perc = table.getItems()[value - 1]
 
             self.say(message, '**{}**'.format(value))
             self.say(message, perc.value)
-        
+
         await self.say_message(message)
 
         if util.dice.low:
@@ -405,25 +422,22 @@ class Tables:
         """
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, commit=False)
+        if user is None:
             await self.say_message(message)
             return
-        session = server.createSession()
-        data = server.getData(session)
-        user = self.get_user(ctx, session)
 
-        table = self.get_table(ctx, message, session, table_name.lower())
+        table = self.get_table(user, message, session, table_name.lower())
 
         if table is not None:
             if user.checkPermissions(ctx, table):
                 csv = self.parse_csv(message, items)
-                percs = [db.server.Percentile(
-                    id=data.getNewId(),
+                percs = [db.schema.TableItem(
                     weight=p[0],
                     value=p[1]) for p in csv]
 
-                table.percentiles.extend(percs)
+                table.items.extend(percs)
                 session.commit()
                 self.say(message, "Added items to " + table.print_name())
             else:
@@ -439,15 +453,13 @@ class Tables:
         """
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, commit=False)
+        if user is None:
             await self.say_message(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
-        data = server.getData(session)
 
-        table = self.get_table(ctx, message, session, table_name.lower())
+        table = self.get_table(user, message, session, table_name.lower())
 
         if table is not None:
             if index < 1 or index > len(table.getItems()):
@@ -459,14 +471,13 @@ class Tables:
 
             if user.checkPermissions(ctx, table):
                 csv = self.parse_csv(message, items)
-                percs = [db.server.Percentile(
-                    id=data.getNewId(),
+                percs = [db.schema.TableItem(
                     weight=p[0],
                     value=p[1]
                 ) for p in csv]
 
                 # Insert the new items into the table
-                table.percentiles[index - 1:index - 1] = percs
+                table.items.set(slice(index - 1, index - 1), percs)
 
                 session.commit()
                 self.say(message, "Added items to " + table.print_name())
@@ -484,14 +495,13 @@ class Tables:
         """
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, commit=False)
+        if user is None:
             await self.say_message(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
 
-        table = self.get_table(ctx, message, session, table_name.lower())
+        table = self.get_table(user, message, session, table_name.lower())
 
         if table is not None:
             if user.checkPermissions(ctx, table):
@@ -511,7 +521,7 @@ class Tables:
                     start_index = table.percentiles.index(
                         table.getItems()[index - 1])
                     end_index = min(start_index + num, len(table.percentiles))
-                    del table.percentiles[slice(start_index, end_index)]
+                    table.items.delete(slice(start_index, end_index))
 
                     session.commit()
             else:
@@ -527,15 +537,13 @@ class Tables:
         """
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, commit=False)
+        if user is None:
             await self.say_message(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
-        data = server.getData(session)
 
-        table = self.get_table(ctx, message, session, table_name.lower())
+        table = self.get_table(user, message, session, table_name.lower())
 
         if table is not None:
             if user.checkPermissions(ctx, table):
@@ -544,8 +552,7 @@ class Tables:
                         len(table.getItems())))
                 else:
                     csv = self.parse_csv(message, items)
-                    percs = [db.server.Percentile(
-                        id=data.getNewId(),
+                    percs = [db.schema.TableItem(
                         weight=p[0],
                         value=p[1]
                     ) for p in csv]
@@ -554,7 +561,7 @@ class Tables:
                         table.getItems()[index - 1])
                     end_index = start_index + len(percs)
 
-                    table.percentiles[slice(start_index, end_index)] = percs
+                    table.items.set(slice(start_index, end_index), percs)
                     session.commit()
 
                     self.say(message, "Replaced {} item{} in {}".format(
@@ -573,18 +580,17 @@ class Tables:
         """
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, commit=False)
+        if user is None:
             await self.say_message(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
 
-        table = self.get_table(ctx, message, session, table_name.lower())
+        table = self.get_table(user, message, session, table_name.lower())
 
         if table is not None:
             if user.checkPermissions(ctx, table):
-                table.percentiles.clear()
+                table.items.clear()
                 session.commit()
                 self.say(message, "Removed all items from " +
                          table.print_name())

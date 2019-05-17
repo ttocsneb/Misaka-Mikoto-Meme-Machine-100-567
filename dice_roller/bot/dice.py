@@ -78,18 +78,6 @@ class Dice:
     async def send(self, messages):
         await self.bot.say('\n'.join(messages))
 
-    def get_server(self, ctx: commands.Context, message=None) -> db.Server:
-        # If the message is not part of a server, get the active server from
-        # the author
-
-        server = db.getDbFromCtx(ctx)
-        if server is None:
-            if message is not None:
-                self.say(message,
-                         "You don't have an active server right now :/")
-                self.say(message, "Activate the server you want to use first.")
-        return server
-
     @commands.command(pass_context=True, aliases=['calc'])
     async def roll(self, ctx: commands.Context, *, equation: str):
         """
@@ -128,13 +116,9 @@ class Dice:
         message = list()
 
         # Parse any variables in the equation first
-        server = self.get_server(ctx)
-        if server is not None:
-            session = server.createSession()
-            user = server.getUser(session, ctx.message.author.id)
-        else:
-            session = None
-            user = None
+        session = db.database.createSession()
+        user, _ = db.database.getUserFromCtx(session, ctx)
+        server, _ = db.database.getServerFromCtx(session, ctx)
 
         try:
             if server is not None:

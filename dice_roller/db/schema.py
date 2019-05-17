@@ -12,8 +12,8 @@ Base = declarative_base()
 class Stat(Base):
     __tablename__ = 'stat'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    userid = Column(Integer, ForeignKey("user.id"))
-    serverid = Column(Integer, ForeignKey("server.id"))
+    user_id = Column(Integer, ForeignKey("user.id"))
+    server_id = Column(Integer, ForeignKey("server.id"))
     name = Column(String(16))
     value = Column(String(45))
     calc = Column(Float)
@@ -38,7 +38,7 @@ class Stat(Base):
 class RollStat(Base):
     __tablename__ = 'rollstat'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    serverid = Column(Integer, ForeignKey("server.id"))
+    server_id = Column(Integer, ForeignKey("server.id"))
     name = Column(String(16))
     value = Column(String(45))
     group = Column(String(16), nullable=True)
@@ -207,7 +207,9 @@ class Server(Base):
     auto_add_stats = Column(Boolean)
     mod_id = Column(Integer, ForeignKey("user.id"), nullable=True)
 
-    mod = relationship(User, uselist=False, foreign_keys=[mod_id])
+    @property
+    def mod(self):
+        raise NotImplementedError
 
     users = relationship(User, secondary=server_user_table, backref='servers')
 

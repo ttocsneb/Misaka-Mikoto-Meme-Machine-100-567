@@ -23,36 +23,47 @@ class Stats:
         if message:
             await self.bot.say(message)
 
-    def get_server(self, ctx: commands.Context, message=None) -> db.Server:
+    def get_server(self, ctx: commands.Context, session, message,
+                   commit=True) -> db.schema.Server:
 
-        server = db.getDbFromCtx(ctx)
+        server = db.database.getServerFromCtx(session, ctx, commit=commit)[0]
         if server is None:
             if message is not None:
                 self.say(message, "You don't have an active server.")
         return server
 
-    def get_user(self, ctx: commands.Context, session) -> db.server.User:
-        return db.Server.getUser(session, ctx.message.author.id)
+    def get_user(self, ctx: commands.Context, session, message,
+                 commit=True) -> db.schema.User:
+        user = db.database.getUserFromCtx(session, ctx, commit=commit)[0]
+        if user is None and message is not None:
+            self.say(
+                message,
+                "You aren't registered with any server and can't register here!"
+            )
+        return user
 
     @classmethod
-    def update_stats_equations(cls, session, eq: db.server.Equation):
+    def update_stats_equations(cls, session, server, eq: db.schema.Equation):
         """
         update the calculated equations for all stats that use the given
         equation
         """
 
-        stats = session.query(db.server.Stat).all()
+        stats = session.query(db.schema.Stat).filter(
+            db.schema.Stat.server_id == server.id
+        ).all()
 
         errors = False
 
         for stat in stats:
-            user = session.query(db.server.User).get(stat.user_id)
+            user = session.query(db.schema.User).get(stat.user_id)
             parsed = util.calculator.parse_args(stat.value.lower(), session,
                                                 user)
             parsed = util.calculator._get_elements(parsed)
 
-            if any(db.Server.get_from_string(
-                    session, db.server.Equation, s) == eq for s in parsed):
+            if any(db.database.get_from_string(
+                    session, db.schema.Equation, s, server.id) == eq
+                    for s in parsed):
 
                 try:
                     cls.calc_stat_value(session, user, stat)
@@ -65,8 +76,8 @@ class Stats:
         return not errors
 
     @classmethod
-    def calc_stat_value(cls, session, user: db.server.User,
-                        stat: db.server.Stat, parse_randoms=False):
+    def calc_stat_value(cls, session, user: db.schema.User,
+                        stat: db.schema.Stat, parse_randoms=False):
         """
         Calculate the stat values for the given stat, and all stats that depend
         on this stat.
@@ -86,7 +97,7 @@ class Stats:
 
         dice = util.dice.rolled_dice
 
-        if len(dice) is 0 or parse_randoms is True:
+        if len(dice) == 0 or parse_randoms is True:
             # 3. set calc to calculated equation
             stat.calc = value
 
@@ -134,13 +145,11 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, True)
+        if user is None:
             await self.send(message)
             return
-
-        session = server.createSession()
-        user = self.get_user(ctx, session)
 
         stats = user.stats
 
@@ -200,13 +209,11 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, False)
+        if user is None:
             await self.send(message)
             return
-        session = server.createSession()
-
-        user = self.get_user(ctx, session)
 
         stats = user.getStats()
 
@@ -247,13 +254,11 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, False)
+        if user is None:
             await self.send(message)
             return
-        session = server.createSession()
-
-        user = self.get_user(ctx, session)
 
         stats = user.getStats()
 
@@ -284,17 +289,19 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, True)
+        if user is None:
             await self.send(message)
             return
-        session = server.createSession()
 
-        stats = session.query(db.server.RollStat).order_by(
-            db.server.RollStat.name
+        stats = session.query(db.schema.RollStat).filter(
+            db.schema.RollStat.server_id == user.active_server_id
+        ).order_by(
+            db.schema.RollStat.name
         ).all()
 
-        if len(stats) is 0:
+        if len(stats) == 0:
             self.say(message, "There are no default stats yet.")
             await self.send(message)
             return
@@ -323,19 +330,19 @@ class Stats:
         """
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, False)
+        if user is None:
             await self.send(message)
             return
-        session = server.createSession()
 
         # Send the typing signal to discord
         await self.bot.send_typing(ctx.message.channel)
 
-        user = self.get_user(ctx, session)
-
         stats = user.getStats()
-        defaults = session.query(db.server.RollStat).all()
+        defaults = session.query(db.schema.RollStat).filter(
+            db.schema.RollStat.server_id == user.active_server_id
+        ).all()
 
         # Set all the stats first
         for default in defaults:
@@ -377,12 +384,6 @@ class Stats:
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
 
-    @getstats.command(pass_context=True, name="show")
-    async def gs_show(self, ctx: commands.Context):
-        """
-        Show all the default stats
-        """
-
     @getstats.command(pass_context=True, usage="<stat> <value>", name="set",
                       aliases=['add', 'edit'])
     async def gs_set(self, ctx: commands.Context, stat_name: str, *,
@@ -393,25 +394,24 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, False)
+        if user is None:
             await self.send(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
 
         if not user.checkPermissions(ctx):
             self.say(message, "You don't have permission to do that.")
             await self.send(message)
             return
 
-        stat = session.query(db.server.RollStat).filter(
-            db.server.RollStat.name == stat_name.lower()
+        stat = session.query(db.schema.RollStat).filter(
+            db.schema.RollStat.server_id == user.active_server_id,
+            db.schema.RollStat.name == stat_name.lower()
         ).first()
 
         if stat is None:
-            data = db.Server.getData(session)
-            stat = db.server.RollStat(id=data.getNewId())
+            stat = db.schema.RollStat(server_id=user.active_server_id)
             stat.name = stat_name.lower()
             session.add(stat)
 
@@ -436,20 +436,20 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        session = db.database.createSession()
+        user = self.get_user(ctx, session, message, False)
+        if user is None:
             await self.send(message)
             return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
 
         if not user.checkPermissions(ctx):
             self.say(message, "You don't have permission to do that")
             await self.send(message)
             return
 
-        stat = session.query(db.server.RollStat).filter(
-            db.server.RollStat.name == stat_name.lower()
+        stat = session.query(db.schema.RollStat).filter(
+            db.schema.RollStat.server_id == user.active_server_id,
+            db.schema.RollStat.name == stat_name.lower()
         ).first()
 
         if stat is None:
