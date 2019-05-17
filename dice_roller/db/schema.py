@@ -122,7 +122,7 @@ server_user_table = Tab(
 class User(Base):
     __tablename__ = 'user'
     id = Column(Integer, primary_key=True)
-    active_server_id = Column(Integer, ForeignKey("server.id"), nullable=True)
+    active_server_id = Column(Integer, ForeignKey("server.id"))
     active_server = relationship("Server", uselist=False,
                                  foreign_keys=[active_server_id])
 

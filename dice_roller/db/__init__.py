@@ -2,6 +2,7 @@ import os
 import sqlalchemy
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
+import logging
 
 import re
 
@@ -11,9 +12,9 @@ from ..config import config, config_dir
 
 from . import schema
 
+logger = logging.getLogger(__name__)
 
-alembic_ini = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), 'alembic'))
+alembic_ini = os.path.abspath(os.path.dirname(__file__))
 
 
 def _get_db_path():
@@ -24,6 +25,8 @@ def _get_db_path():
 
 
 def upgrade():
+    logger.info("Upgrading database..")
+
     wd = os.getcwd()
     os.chdir(alembic_ini)
 
@@ -61,8 +64,6 @@ class Database:
 
     def __init__(self, uri):
         self._uri = uri
-
-        upgrade()
 
         self._engine = sqlalchemy.create_engine(uri, echo=False)
 
