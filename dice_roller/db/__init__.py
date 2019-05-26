@@ -77,31 +77,45 @@ class Database:
         Get the server. If the server doesn't exist, then a new one will be
         created.
         """
-        server_kwargs = dict(prefix=config.config.prefix).update(kwargs)
         value = get_one_or_create(
             session, schema.Server,
-            create_method_kwargs=server_kwargs,
-            id=int(server_id)
+            create_method_kwargs=dict(prefix=config.config.prefix),
+            id=int(server_id),
+            **kwargs
         )
 
         if commit and value[1]:
             session.commit()
         return value
 
-    def getUser(self, session, user_id, server_id, commit=True, **kwargs):
+    def getUser(self, session, user_id, server_id, update_server=True,
+                commit=True, **kwargs):
         """
         Get the User. If the user doesn't exist, then a new one will be
         created.
         """
-        user_kwargs = dict(active_server_id=server_id).update(kwargs)
+        # Get the user
         value = get_one_or_create(
             session, schema.User,
-            create_method_kwargs=user_kwargs,
-            id=int(user_id)
+            id=int(user_id),
+            **kwargs
         )
 
-        if commit and value[1]:
-            session.commit()
+        # Update the user's active server if it is different from server_id
+        if server_id is not None and (
+                value[0].active_server is None or
+                (update_server and server_id != value[0].active_server_id)):
+            server = self.getServer(session, server_id, commit=False)
+
+            value = (value[0], value[1] or server[1])
+            value[0].active_server = server[0]
+
+            if value[1]:
+                server[0].users.append(value[0])
+
+        if value[1]:
+            if commit:
+                session.commit()
         return value
 
     def getServerFromCtx(self, session, ctx, commit=True):
@@ -118,7 +132,7 @@ class Database:
                                         discord.ChannelType.group]:
             # Get the user, then the active server.
             # If the user doesn't exist, then there is no active server
-            user = session.query(schema.User).get(ctx.message.author.id)
+            user = session.query(schema.User).get(int(ctx.message.author.id))
             if user is None:
                 return None, False
             return user.active_server, False
@@ -143,22 +157,8 @@ class Database:
             active_server = int(ctx.message.server.id)
 
         # get/create the user
-        user, new = self.getUser(session, ctx.message.author.id, active_server,
-                                 False)
-
-        # If the user was created, and no active server was found, cancel the
-        # creation
-        if active_server is None and new:
-            session.rollback()
-            return None, False
-        elif update_server and active_server and not new:
-            user.active_server, new = self.getServerFromCtx(
-                session, ctx, commit=commit)
-
-        if commit:
-            session.commit()
-
-        return user, new
+        return self.getUser(session, ctx.message.author.id, active_server,
+                            update_server=update_server, commit=commit)
 
     @classmethod
     def get_from_string(cls, session, clss, string, server_id, user_id=None):

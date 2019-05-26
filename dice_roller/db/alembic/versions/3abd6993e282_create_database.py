@@ -20,33 +20,33 @@ def upgrade():
 
     op.create_table(
         'user',
-        sa.Column('id', sa.Integer, primary_key=True),
-        sa.Column('active_server_id', sa.Integer, sa.ForeignKey('server.id'))
+        sa.Column('id', sa.BigInteger, primary_key=True),
+        sa.Column('active_server_id', sa.BigInteger, sa.ForeignKey('server.id'))
     )
 
     op.create_table(
         'server',
-        sa.Column('id', sa.Integer, primary_key=True),
-        sa.Column('prefix', sa.String(1)),
-        sa.Column('auto_add_stats', sa.Boolean),
-        sa.Column('mod_id', sa.Integer, nullable=True)
+        sa.Column('id', sa.BigInteger, primary_key=True),
+        sa.Column('prefix', sa.String(1), default='?'),
+        sa.Column('auto_add_stats', sa.Boolean, default=True),
+        sa.Column('mod_id', sa.BigInteger, nullable=True)
     )
 
     op.create_table(
         'stat',
         sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column('user_id', sa.Integer, sa.ForeignKey('user.id')),
-        sa.Column('server_id', sa.Integer, sa.ForeignKey('server.id')),
+        sa.Column('user_id', sa.BigInteger, sa.ForeignKey('user.id')),
+        sa.Column('server_id', sa.BigInteger, sa.ForeignKey('server.id')),
         sa.Column('name', sa.String(16)),
         sa.Column('value', sa.String(45)),
-        sa.Column('calc', sa.Float),
+        sa.Column('calc', sa.Float, nullable=True),
         sa.Column('group', sa.String(16), nullable=True)
     )
 
     op.create_table(
         'rollstat',
         sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column('server_id', sa.Integer, sa.ForeignKey('server.id')),
+        sa.Column('server_id', sa.BigInteger, sa.ForeignKey('server.id')),
         sa.Column('name', sa.String(16)),
         sa.Column('value', sa.String(45)),
         sa.Column('group', sa.String(16), nullable=True)
@@ -55,11 +55,11 @@ def upgrade():
     op.create_table(
         'table',
         sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column('creator_id', sa.Integer, sa.ForeignKey('user.id')),
-        sa.Column('server_id', sa.Integer, sa.ForeignKey('server.id')),
+        sa.Column('creator_id', sa.BigInteger, sa.ForeignKey('user.id')),
+        sa.Column('server_id', sa.BigInteger, sa.ForeignKey('server.id')),
         sa.Column('name', sa.String(16)),
-        sa.Column('desc', sa.String(32)),
-        sa.Column('hidden', sa.Boolean)
+        sa.Column('desc', sa.String(32), nullable=True),
+        sa.Column('hidden', sa.Boolean, default=False)
     )
 
     op.create_table(
@@ -67,25 +67,25 @@ def upgrade():
         sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
         sa.Column('table_id', sa.Integer, sa.ForeignKey('table.id')),
         sa.Column('index', sa.Integer),
-        sa.Column('weight', sa.Integer),
+        sa.Column('weight', sa.Integer, default=1),
         sa.Column('value', sa.String(64))
     )
 
     op.create_table(
         'equation',
         sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column('creator_id', sa.Integer, sa.ForeignKey('user.id')),
-        sa.Column('server_id', sa.Integer, sa.ForeignKey('server.id')),
+        sa.Column('creator_id', sa.BigInteger, sa.ForeignKey('user.id')),
+        sa.Column('server_id', sa.BigInteger, sa.ForeignKey('server.id')),
         sa.Column('name', sa.String(16)),
-        sa.Column('desc', sa.String(32)),
+        sa.Column('desc', sa.String(32), nullable=True),
         sa.Column('value', sa.String(45)),
-        sa.Column('params', sa.Integer)
+        sa.Column('params', sa.Integer, default=0)
     )
 
     op.create_table(
-        'server-user',
-        sa.Column('server_id', sa.Integer, sa.ForeignKey('server.id')),
-        sa.Column('user_id', sa.Integer, sa.ForeignKey('user.id'))
+        'server_user',
+        sa.Column('server_id', sa.BigInteger, sa.ForeignKey('server.id')),
+        sa.Column('user_id', sa.BigInteger, sa.ForeignKey('user.id'))
     )
 
 
@@ -97,4 +97,4 @@ def downgrade():
     op.drop_table('table')
     op.drop_table('tableitem')
     op.drop_table('equation')
-    op.drop_table('server-user')
+    op.drop_table('server_user')

@@ -112,7 +112,7 @@ class Equations:
         if equation is not None:
             self.say(message, equation.printName())
             self.say(message, "```python")
-            self.say(message, equation.equation)
+            self.say(message, equation.value)
             self.say(message, "```")
 
         await self.say_message(message)
@@ -145,8 +145,8 @@ class Equations:
         new_eq = db.schema.Equation(server_id=user.active_server_id)
         new_eq.name = table_name.lower()
         new_eq.creator_id = user.id
-        new_eq.equation = equation.lower()
-        new_eq.params = self.get_num_params(new_eq.equation)
+        new_eq.value = equation.lower()
+        new_eq.params = self.get_num_params(new_eq.value)
         new_eq.desc = ''
 
         session.add(new_eq)
@@ -171,7 +171,7 @@ class Equations:
             await self.bot.say("You don't have an active server!")
             return
 
-        equation = self.get_equation(ctx, message, session, table_name)
+        equation = self.get_equation(user, message, session, table_name)
 
         if equation is not None:
             if user.checkPermissions(ctx, equation):
@@ -199,15 +199,16 @@ class Equations:
             await self.bot.say("You don't have an active server!")
             return
 
-        equation = self.get_equation(ctx, message, session, eq_name)
+        equation = self.get_equation(user, message, session, eq_name)
 
         if equation is not None:
             if user.checkPermissions(ctx, equation):
-                equation.equation = eq.lower()
+                equation.value = eq.lower()
                 equation.params = self.get_num_params(eq)
 
                 from . import stats
-                success = stats.Stats.update_stats_equations(session, equation)
+                success = stats.Stats.update_stats_equations(
+                    session, user.active_server, equation)
 
                 session.commit()
 
@@ -242,7 +243,7 @@ class Equations:
             await self.bot.say("You don't have an active server!")
             return
 
-        equation = self.get_equation(ctx, message, session, eq_name)
+        equation = self.get_equation(user, message, session, eq_name)
 
         if equation is not None:
             if user.checkPermissions(ctx, equation):
@@ -273,11 +274,11 @@ class Equations:
             await self.bot.say("You don't have an active server!")
             return
 
-        equation = self.get_equation(ctx, message, session, eq_name)
+        equation = self.get_equation(user, message, session, eq_name)
 
         if equation is not None:
             try:
-                eq = util.calculator.parse_args(equation.equation, session,
+                eq = util.calculator.parse_args(equation.value, session,
                                                 user, args)
                 util.dice.logging_enabled = True
                 value = util.calculator.parse_equation(eq, session, user)

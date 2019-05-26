@@ -1,5 +1,6 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, Boolean, Float, ForeignKey
+from sqlalchemy import (Column, Integer, BigInteger, String, Boolean, Float,
+                        ForeignKey)
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy import Table as Tab
@@ -12,11 +13,11 @@ Base = declarative_base()
 class Stat(Base):
     __tablename__ = 'stat'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("user.id"))
-    server_id = Column(Integer, ForeignKey("server.id"))
+    user_id = Column(BigInteger, ForeignKey("user.id"))
+    server_id = Column(BigInteger, ForeignKey("server.id"))
     name = Column(String(16))
     value = Column(String(45))
-    calc = Column(Float)
+    calc = Column(Float, nullable=True)
     group = Column(String(16), nullable=True)
 
     def getValue(self):
@@ -38,7 +39,7 @@ class Stat(Base):
 class RollStat(Base):
     __tablename__ = 'rollstat'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    server_id = Column(Integer, ForeignKey("server.id"))
+    server_id = Column(BigInteger, ForeignKey("server.id"))
     name = Column(String(16))
     value = Column(String(45))
     group = Column(String(16), nullable=True)
@@ -59,7 +60,7 @@ class TableItem(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     table_id = Column(Integer, ForeignKey("table.id"))
     index = Column(Integer)
-    weight = Column(Integer)
+    weight = Column(Integer, default=1)
     value = Column(String(64))
 
     def __repr__(self):
@@ -69,18 +70,69 @@ class TableItem(Base):
 class Table(Base):
     __tablename__ = 'table'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    creator_id = Column(Integer, ForeignKey("user.id"))
-    server_id = Column(Integer, ForeignKey("server.id"))
+    creator_id = Column(BigInteger, ForeignKey("user.id"))
+    server_id = Column(BigInteger, ForeignKey("server.id"))
 
     name = Column(String(16))
-    desc = Column(String(32))
-    hidden = Column(Boolean())
+    desc = Column(String(32), nullable=True)
+    hidden = Column(Boolean(), default=False)
 
     items_list = relationship(TableItem, order_by='TableItem.index',
                               collection_class=ordering_list('index'),
                               cascade="all, delete, delete, delete-orphan")
 
     items = property(lambda self: data_models.TableItems(self))
+
+    def print_name(self):
+        desc = ' *{}*'.format(self.desc) if self.desc else ''
+        return '{}:{}'.format(self.name, self.id) + desc
+
+    def print_all_percentiles(self):
+        """
+        Get a string of all the items in this table
+        """
+        total = 1
+
+        percentile = list()
+
+        max_width = 0
+
+        for item in self.items:
+            if item.weight == 1:
+                string = str(total)
+            else:
+                string = str(total) + "-" + str(total + item.weight - 1)
+            total += item.weight
+            percentile.append((string, item.value))
+            max_width = max(max_width, len(string))
+
+        return ['{0: >{width}}.  {1}'.format(*i, width=max_width)
+                for i in percentile]
+
+    def get_roll_sides(self):
+        """
+        Get the sides of the dice that will be used for this table.
+
+        Since the sides will almost allways be larger be larger than
+        the number of items, if a roll is larger than the size, then
+        a reroll must be made.
+        """
+
+        items = self.items
+
+        sides = (1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 24, 30, 40, 60, 100, 120)
+        size = items.size
+
+        def iter_sides():
+            for s in sides:
+                yield s
+            import itertools
+            for i in itertools.count(start=3):
+                yield 10 ** i
+
+        for side in iter_sides():
+            if size <= side:
+                return side
 
     def __repr__(self):
         return "<Table(name='{}')>".format(self.name)
@@ -89,13 +141,13 @@ class Table(Base):
 class Equation(Base):
     __tablename__ = 'equation'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    creator_id = Column(Integer, ForeignKey("user.id"))
-    server_id = Column(Integer, ForeignKey("server.id"))
+    creator_id = Column(BigInteger, ForeignKey("user.id"))
+    server_id = Column(BigInteger, ForeignKey("server.id"))
 
     name = Column(String(16))
-    desc = Column(String(32))
+    desc = Column(String(32), nullable=True)
     value = Column(String(45))
-    params = Column(Integer)
+    params = Column(Integer, default=0)
 
     def printName(self):
         name = str(self.name) + ":" + str(self.id)
@@ -113,16 +165,16 @@ class Equation(Base):
 
 
 server_user_table = Tab(
-    'server-user', Base.metadata,
-    Column('server_id', Integer, ForeignKey('server.id')),
-    Column('user_id', Integer, ForeignKey('user.id'))
+    'server_user', Base.metadata,
+    Column('server_id', BigInteger, ForeignKey('server.id')),
+    Column('user_id', BigInteger, ForeignKey('user.id'))
 )
 
 
 class User(Base):
     __tablename__ = 'user'
-    id = Column(Integer, primary_key=True)
-    active_server_id = Column(Integer, ForeignKey("server.id"))
+    id = Column(BigInteger, primary_key=True)
+    active_server_id = Column(BigInteger, ForeignKey("server.id"))
     active_server = relationship("Server", uselist=False,
                                  foreign_keys=[active_server_id])
 
@@ -147,14 +199,20 @@ class User(Base):
         """
         from ..config import config
 
+        print("checking permissions")
+
         # Check if the user is the creator of the obj
         if obj_w_creator is not None:
             if ctx.message.author.id == str(obj_w_creator.creator_id):
                 return True
 
+            print("not creator")
+
         # Check if the user is a bot moderator
         if ctx.message.author.id in config.config.mods:
             return True
+
+        print("not moderator")
 
         member = self.getMember(ctx)
         if member is not None:
@@ -162,11 +220,16 @@ class User(Base):
                 # Check if the user has permission to change the server
                 if member.server_permissions.manage_server:
                     return True
+                print("can't manage server")
 
                 # Check if the user is a server moderator for the bot
                 if self.active_server.mod.id == self.id:
                     return True
+                print("is not a server mod")
             except:
+                print("ERROR")
+                import traceback
+                traceback.print_exc()
                 return False
         return False
 
@@ -202,10 +265,10 @@ class User(Base):
 
 class Server(Base):
     __tablename__ = 'server'
-    id = Column(Integer, primary_key=True)
-    prefix = Column(String(1))
-    auto_add_stats = Column(Boolean)
-    mod_id = Column(Integer, ForeignKey("user.id"), nullable=True)
+    id = Column(BigInteger, primary_key=True)
+    prefix = Column(String(1), default='?')
+    auto_add_stats = Column(Boolean, default=True)
+    mod_id = Column(BigInteger, nullable=True)
 
     @property
     def mod(self):

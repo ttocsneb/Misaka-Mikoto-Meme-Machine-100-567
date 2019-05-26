@@ -107,7 +107,7 @@ class Stats:
 
         from string import Formatter
         name = stat.name.lower()
-        for st in user.stats:
+        for st in user.stats.values():
             params = [fn for _, fn, _, _
                       in Formatter().parse(str(st.value).lower())
                       if fn is not None]
@@ -165,8 +165,9 @@ class Stats:
 
         default = "?"
 
-        for stat in stats:
-            max_name_width.append(len(stat.name))
+        for name, stat in stats.items():
+            print(stat)
+            max_name_width.append(len(name))
             if stat.calc is not None:
                 val = int(stat.calc) if int(stat.calc) == stat.calc \
                     else stat.calc
@@ -177,7 +178,7 @@ class Stats:
         max_name_width = max(max_name_width)
         max_val_width = max(max_val_width)
 
-        for stat in stats:
+        for name, stat in stats.items():
             if stat.calc is not None:
                 val = int(stat.calc) if int(stat.calc) == stat.calc \
                     else stat.calc
@@ -186,12 +187,12 @@ class Stats:
 
             if str(val) != stat.value:
                 self.say(message, "{0:>{wid_n}}  {1:<{wid_v}} = {2}".format(
-                    stat.name, val, stat.value, wid_n=max_name_width,
+                    name, val, stat.value, wid_n=max_name_width,
                     wid_v=max_val_width
                 ))
             else:
                 self.say(message, "{0:>{wid_n}}  {1}".format(
-                    stat.name, val, wid_n=max_name_width
+                    name, val, wid_n=max_name_width
                 ))
 
         self.say(message, "```")
@@ -215,7 +216,7 @@ class Stats:
             await self.send(message)
             return
 
-        stats = user.getStats()
+        stats = user.stats
 
         stats[stat.lower()] = value.lower()
 
@@ -260,7 +261,7 @@ class Stats:
             await self.send(message)
             return
 
-        stats = user.getStats()
+        stats = user.stats
 
         try:
             del stats[stat.lower()]
@@ -339,7 +340,7 @@ class Stats:
         # Send the typing signal to discord
         await self.bot.send_typing(ctx.message.channel)
 
-        stats = user.getStats()
+        stats = user.stats
         defaults = session.query(db.schema.RollStat).filter(
             db.schema.RollStat.server_id == user.active_server_id
         ).all()
