@@ -166,7 +166,6 @@ class Stats:
         default = "?"
 
         for name, stat in stats.items():
-            print(stat)
             max_name_width.append(len(name))
             if stat.calc is not None:
                 val = int(stat.calc) if int(stat.calc) == stat.calc \

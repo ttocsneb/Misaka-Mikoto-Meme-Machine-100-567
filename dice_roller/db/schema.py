@@ -199,20 +199,14 @@ class User(Base):
         """
         from ..config import config
 
-        print("checking permissions")
-
         # Check if the user is the creator of the obj
         if obj_w_creator is not None:
             if ctx.message.author.id == str(obj_w_creator.creator_id):
                 return True
 
-            print("not creator")
-
         # Check if the user is a bot moderator
         if ctx.message.author.id in config.config.mods:
             return True
-
-        print("not moderator")
 
         member = self.getMember(ctx)
         if member is not None:
@@ -220,14 +214,11 @@ class User(Base):
                 # Check if the user has permission to change the server
                 if member.server_permissions.manage_server:
                     return True
-                print("can't manage server")
 
                 # Check if the user is a server moderator for the bot
                 if self.active_server.mod.id == self.id:
                     return True
-                print("is not a server mod")
             except:
-                print("ERROR")
                 import traceback
                 traceback.print_exc()
                 return False

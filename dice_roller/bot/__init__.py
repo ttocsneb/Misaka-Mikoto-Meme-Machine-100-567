@@ -26,13 +26,11 @@ class Bot:
 
         session = db.database.createSession()
         user = db.database.getUserFromCtx(session, CtxTmp(message))[0]
-        self._logger.info(str(user.servers))
         if message.channel.type in [
                 discord.ChannelType.private,
                 discord.ChannelType.group]:
             # Get all the prefixes from each server the user is a part of
             prefixes = [s.prefix for s in user.servers]
-            self._logger.info(str(prefixes))
             return prefixes + [commands.when_mentioned(bot, message)]
 
         server = user.active_server

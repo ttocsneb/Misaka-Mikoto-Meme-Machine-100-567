@@ -4,6 +4,7 @@ import asyncio
 from discord.ext import commands
 
 from .. import util
+from ..util import variables
 from .. import db
 
 
@@ -28,9 +29,7 @@ class Equations:
         return db.database.getUserFromCtx(session, ctx, commit)[0]
 
     def get_num_params(self, text):
-        from string import Formatter
-        params = [fn for _, fn, _, _ in Formatter().parse(text)
-                  if fn is not None]
+        params = variables.getVariables(text)
 
         def is_int(text):
             try:

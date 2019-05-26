@@ -2,7 +2,7 @@ import re
 import math
 import collections
 
-from . import dice, BadEquation
+from . import dice, BadEquation, variables
 from .. import db
 
 
@@ -39,6 +39,11 @@ class FunctionDict(collections.Mapping):
 
     def __len__(self):
         return len(self._func)
+
+    def __str__(self):
+        return '{{{}}}'.format(', '.join(
+            '{}: {}'.format(i, v) for i, v in self.items()
+        ))
 
 
 class Calculator:
@@ -274,7 +279,7 @@ class Calculator:
             if loop >= 20:
                 raise BadEquation("Too much recursion in the equation!")
             try:
-                equation = equation.format(*args, **stats)
+                equation = variables.setVariables(equation, *args, **stats)
             except KeyError:
                 from string import Formatter
                 params = [fn for _, fn, _, _ in Formatter().parse(equation)
@@ -325,7 +330,7 @@ class Calculator:
 
         # Add the custom equations to the equation list
         if session is not None:
-            repeats = dict() if _repeats is None else repeats
+            repeats = dict() if _repeats is None else _repeats
 
             def getEquation(eq_name):
                 try:
@@ -334,7 +339,8 @@ class Calculator:
                     pass
                 if user is not None:
                     eq = db.database.get_from_string(
-                        session, db.schema.Equation, eq_name, user.id)
+                        session, db.schema.Equation, eq_name,
+                        user.active_server.id, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq
@@ -347,13 +353,14 @@ class Calculator:
                     pass
                 if user is not None:
                     eq = db.database.get_from_string(
-                        session, db.schema.Equation, eq_name, user.id)
+                        session, db.schema.Equation, eq_name,
+                        user.active_server.id, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq
 
                 return lambda *args: self.parse_equation(
-                    self.parse_args(eq.equation, session, user, args),
+                    self.parse_args(eq.value, session, user, args),
                     session,
                     user,
                     _recursed=_recursed + 1)
@@ -365,7 +372,8 @@ class Calculator:
                     pass
                 if user is not None:
                     eq = db.database.get_from_string(
-                        session, db.schema.Equation, eq_name, user.id)
+                        session, db.schema.Equation, eq_name,
+                        user.active_server.id, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq
