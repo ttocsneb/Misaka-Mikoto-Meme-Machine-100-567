@@ -37,8 +37,7 @@ class DictField(fields.Nested):
             if isinstance(item, dict):
                 item[self._key] = key
                 return item
-            else:
-                return {self._val: item, self._key: key}
+            return {self._val: item, self._key: key}
         raw_list = [insert_key(item, key) for key, item in value.items()]
         nested_list = super()._deserialize(raw_list, attr, data)
         return nested_list
@@ -80,11 +79,11 @@ class StatGroupField(fields.Nested):
     def _deserialize(self, value, attr, data):
         raw_list = list()
         for group, items in value.items():
-            for name, value in items.items():
+            for name, val in items.items():
                 raw_list.append(dict(
                     group=group,
                     name=name,
-                    value=value
+                    value=val
                 ))
         return super()._deserialize(raw_list, attr, data)
 

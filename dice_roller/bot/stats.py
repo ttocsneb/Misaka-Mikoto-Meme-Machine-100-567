@@ -97,7 +97,7 @@ class Stats:
 
         dice = util.dice.rolled_dice
 
-        if len(dice) == 0 or parse_randoms is True:
+        if not dice or parse_randoms is True:
             # 3. set calc to calculated equation
             stat.calc = value
 
@@ -301,7 +301,7 @@ class Stats:
             db.schema.RollStat.name
         ).all()
 
-        if len(stats) == 0:
+        if not stats:
             self.say(message, "There are no default stats yet.")
             await self.send(message)
             return
