@@ -63,6 +63,7 @@ class Database:
     _name_regex = re.compile(r"([\S]+(?=:)|(?<=:)[\d]+|[^:\s]+|(?<!\S)(?=:))")
 
     def __init__(self, uri):
+        logger.info("Connecting to database '{}'".format(uri))
         self._uri = uri
 
         self._engine = sqlalchemy.create_engine(uri, echo=False)
