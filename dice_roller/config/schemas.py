@@ -14,7 +14,7 @@ class Config:
         self.token = data.get('token', None)
         self.random = data.get('random', Random(dict()))
         self.mods = data.get('mods', [])
-        self.db_file = data.get('db_file', 'db.dat')
+        self.db_file = data.get('db_file', 'sqlite:///db.sqlite')
         self.description = data.get(
             'description',
             "I am a professional dice roller.  I use Random.org to roll my dice.\n"

@@ -1,11 +1,11 @@
 from __future__ import with_statement
-
-import os
-
 from alembic import context
 from sqlalchemy import engine_from_config, pool, create_engine
 from logging.config import fileConfig
 import logging
+import re
+
+USE_TWOPHASE = False
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -14,40 +14,27 @@ config = context.config
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 # fileConfig(config.config_file_name)
+# logger = logging.getLogger('alembic.env')
+
+# gather section names referring to different
+# databases.  These are named "engine1", "engine2"
+# in the sample .ini file.
+# db_names = config.get_main_option('databases')
 
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = None
+from dice_roller.db.schema import Base as model
+metadata = model.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
-logger = logging.getLogger(__name__)
-
-
-def get_url():
-
-    url = context.get_x_argument(as_dictionary=True).get('url')
-    
-    assert url, "Database URL must be specified on command line with -x url=<DB_URL>"
-
-    if ":///" in url:
-        logger.info(url)
-        return url
-
-    base = config.get_main_option("url_dir")
-    if not os.path.isabs(base):
-        di = os.path.dirname(os.path.realpath(__file__))
-        base = os.path.join(di, base)
-
-    url = config.get_main_option("base_url") + os.path.join(base, url)
-
-    logger.info(url)
-    return url
+from dice_roller.config import config
+db_file = config.config.db_file
 
 
 def run_migrations_offline():
@@ -62,15 +49,16 @@ def run_migrations_offline():
     script output.
 
     """
-    url = get_url()
+    # for the --sql use case, run migrations for each URL into
+    # individual files.
 
-    is_sqlite = url.startswith("sqlite:")
-
+    is_sqlite = db_file.startswith("sqlite:")
     context.configure(
-        url=url, target_metadata=target_metadata, literal_binds=True,
-        render_as_batch=is_sqlite)
-    
-
+        url=db_file,
+        target_metadata=metadata,
+        literal_binds=True,
+        render_as_batch=is_sqlite
+    )
     with context.begin_transaction():
         context.run_migrations()
 
@@ -82,20 +70,21 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
+    
+    is_sqlite = db_file.startswith("sqlite:")
 
-    url = get_url()
-    is_sqlite = url.startswith("sqlite:")
-    connectable = create_engine(url)
+    connectable = create_engine(db_file)
 
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
-            target_metadata=target_metadata,
+            target_metadata=metadata,
             render_as_batch=is_sqlite
         )
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()

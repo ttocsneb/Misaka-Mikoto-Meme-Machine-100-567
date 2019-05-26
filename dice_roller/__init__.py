@@ -56,7 +56,8 @@ def sigint_shutdown():
 
 
 def serve(test=False, sql_file=None):
-    
+    db.upgrade()
+
     _logger.info("Loading Token")
     if not test:
         try:

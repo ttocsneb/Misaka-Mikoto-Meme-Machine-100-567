@@ -35,38 +35,29 @@ class Misc:
         await self.bot.say("PONGU!")
 
     @commands.command(pass_context=True)
-    async def prefix(self, ctx, prefix: str):
+    async def prefix(self, ctx, prefix: str = None):
         """
         Change the prefix for this bot.
 
         Note You must have permission to manage the server to do this.
         """
 
-        if ctx.message.channel.type in [discord.ChannelType.private,
-                                        discord.ChannelType.group]:
-            await self.bot.say("You can't use that command here.")
+        session = db.database.createSession()
+        user = db.database.getUserFromCtx(session, ctx, commit=False)[0]
+
+        if prefix is None:
+            await self.bot.say("The prefix is `{}`".format(user.active_server.prefix))
             return
 
         try:
-            if ctx.message.author.server_permissions.manage_server or \
-                    ctx.message.author.id in config.config.mods:
+            if user.checkPermissions(ctx):
                 # Change the server prefix
-                server = db.getDb(ctx.message.server.id)
-                session = server.createSession()
-                data = server.getData(session)
-                data.prefix = prefix[0]
-                session.commit()
-
-                # Change the database prefix
-                servers = db.getServers()
-                session = servers.createSession()
-                server = servers.getServer(session, ctx.message.server.id)
-                server.prefix = prefix[0]
+                user.active_server.prefix = prefix
                 session.commit()
 
                 await self.bot.say(
                     "Successfully changed the prefix to `{}`".format(
-                        server.prefix))
+                        user.active_server.prefix))
             else:
                 await self.bot.say(
                     "You don't have the permissions to change my prefix!")
@@ -77,25 +68,21 @@ class Misc:
     @commands.command(pass_context=True)
     async def active(self, ctx):
         """
-        Get your active PM server
+        Get your active server
 
         Get the name of the server that is currently
-        selected for when you are private messaging this bot.
+        selected for when you are direct messaging this bot.
         """
         bot = self.bot
         servers = bot.servers
 
-        conf = db.getServers()
-        session = conf.createSession()
+        session = db.database.createSession()
 
-        user = session.query(db.conf.User).filter(
-            db.conf.User.id == ctx.message.author.id
-        ).first()
-
-        active_server = user.active_server_id
+        active_server = session.query(db.schema.User).get(
+            ctx.message.author.id).active_server
 
         try:
-            server = [s for s in servers if s.id == str(active_server)][0]
+            server = [s for s in servers if int(s.id) == active_server.id][0]
 
             await bot.say(
                 "**{}** is currently the active server".format(str(server)))
@@ -115,10 +102,8 @@ class Misc:
                 "You can't use that command here.  Use it in a server to activate that server.")
             return
 
-        server = db.getDb(ctx.message.server.id)
-
-        session = server.createSession()
-        server.getUser(session, ctx.message.author.id)
+        session = db.database.createSession()
+        db.database.getUserFromCtx(session, ctx, update_server=True)
 
         await self.bot.say(
             "**{}** is now your active server.".format(
@@ -130,14 +115,12 @@ class Misc:
         Get the current moderator role
         """
 
-        server = db.getDb(ctx.message.server.id)
-        session = server.createSession()
-
-        data = server.getData(session)
+        session = db.database.createSession()
+        server = db.database.getServerFromCtx(session, ctx)[0]
 
         try:
             role = [role for role in ctx.message.server.roles
-                    if role.id == data.mod][0]
+                    if int(role.id) == server.mod_id][0]
             await self.bot.say(
                 "The current moderator role is **{}**".format(role.name))
         except IndexError:
@@ -165,9 +148,10 @@ class Misc:
 
         message = list()
 
-        server = db.getDbFromCtx(ctx)
-        session = server.createSession()
-        user = server.getUser(session, ctx.message.author.id)
+        session = db.database.createSession()
+        server = db.database.getServerFromCtx(session, ctx, commit=False)[0]
+        user = db.database.getUserFromCtx(session, ctx, update_server=True,
+                                          commit=False)[0]
 
         member = user.getMember(ctx)
 
@@ -175,12 +159,10 @@ class Misc:
             if member.server_permissions.manage_server or \
                     member.id in config.config.mods:
 
-                data = db.Server.getData(session)
-
                 role_name = role_name.lower()
                 for role in ctx.message.server.roles:
                     if role_name in [role.name.lower(), role.mention.lower()]:
-                        data.mod = role.id
+                        server.mod_id = role.id
 
                         name = role.name
                         if role.mentionable:
