@@ -19,17 +19,17 @@ depends_on = None
 def upgrade():
 
     op.create_table(
-        'user',
-        sa.Column('id', sa.BigInteger, primary_key=True),
-        sa.Column('active_server_id', sa.BigInteger, sa.ForeignKey('server.id'))
-    )
-
-    op.create_table(
         'server',
         sa.Column('id', sa.BigInteger, primary_key=True),
         sa.Column('prefix', sa.String(1), default='?'),
         sa.Column('auto_add_stats', sa.Boolean, default=True),
         sa.Column('mod_id', sa.BigInteger, nullable=True)
+    )
+
+    op.create_table(
+        'user',
+        sa.Column('id', sa.BigInteger, primary_key=True),
+        sa.Column('active_server_id', sa.BigInteger, sa.ForeignKey('server.id'))
     )
 
     op.create_table(
