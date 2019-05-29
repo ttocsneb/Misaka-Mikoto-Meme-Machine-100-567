@@ -4,6 +4,7 @@ from sqlalchemy import (Column, Integer, BigInteger, String, Boolean, Float,
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy import Table as Tab
+from sqlalchemy.orm.session import Session
 
 from . import data_models
 
@@ -180,12 +181,30 @@ class User(Base):
 
     stats_list = relationship(Stat, order_by="Stat.name",
                               cascade="all, delete, delete-orphan")
-    equations = relationship(Equation, backref='creator')
+    all_equations = relationship(Equation, backref='creator')
     tables = relationship(Table, backref='creator')
 
-    stats = property(
-        lambda self: data_models.Stats(self)
+    all_stats = property(
+        lambda self: data_models.Stats(self.stats_list)
     )
+
+    @property
+    def stats(self):
+        session = Session.object_session(self)
+        return data_models.Stats(session.query(Stat).filter(
+            Stat.user_id == self.id,
+            Stat.server_id == self.active_server_id
+        ).order_by(Stat.name).all())
+
+    @property
+    def equations(self):
+        # Get all the equations that are both owned by this user, and in the
+        # current active server
+        session = Session.object_session(self)
+        return session.query(Equation).filter(
+            Equation.creator_id==self.id,
+            Equation.server_id==self.active_server_id
+        ).order_by(Equation.name).all()
 
     def checkPermissions(self, ctx, obj_w_creator=None):
         """

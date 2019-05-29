@@ -4,11 +4,11 @@ import collections
 
 class Stats(collections.MutableMapping):
 
-    def __init__(self, user):
-        self._user = user
+    def __init__(self, stats):
+        self._stats = stats
 
     def __getitem__(self, key):
-        for stat in self._user.stats_list:
+        for stat in self._stats:
             if stat.name == key:
                 return stat
         raise KeyError
@@ -22,23 +22,23 @@ class Stats(collections.MutableMapping):
             stat = Stat()
             stat.name = key
             stat.value = value
-            self._user.stats_list.append(stat)
+            self._stats.append(stat)
 
     def __len__(self):
-        return len(self._user.stats_list)
+        return len(self._stats)
 
     def __iter__(self):
-        for stat in self._user.stats_list:
+        for stat in self._stats:
             yield stat.name
 
     def __delitem__(self, key):
         stat = self[key]
-        self._user.stats_list.remove(stat)
+        self._stats.remove(stat)
 
     def __str__(self):
         return "{" + ",".join(
             ["{}: {}".format(i.name, i.value)
-             for i in self._user.stats_list
+             for i in self._stats
              ]) + "}"
 
 
