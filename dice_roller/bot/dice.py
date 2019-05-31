@@ -116,29 +116,29 @@ class Dice:
         message = list()
 
         # Parse any variables in the equation first
-        session = db.database.createSession()
-        user, _ = db.database.getUserFromCtx(session, ctx)
-        server, _ = db.database.getServerFromCtx(session, ctx)
+        with db.database.session() as session:
+            user, _ = db.database.getUserFromCtx(session, ctx)
+            server, _ = db.database.getServerFromCtx(session, ctx)
 
-        try:
-            if server is not None:
-                equation = util.calculator.parse_args(equation, session, user)
-            util.dice.logging_enabled = True
-            value = util.calculator.parse_equation(equation, session, user)
-            util.dice.logging_enabled = False
-        except util.BadEquation as exception:
-            self.say(message, exception)
+            try:
+                if server is not None:
+                    equation = util.calculator.parse_args(equation, session, user)
+                util.dice.logging_enabled = True
+                value = util.calculator.parse_equation(equation, session, user)
+                util.dice.logging_enabled = False
+            except util.BadEquation as exception:
+                self.say(message, exception)
+                await self.send(message)
+                return
+
+            dice = util.dice.rolled_dice
+            if len(dice) > 0:
+                self.say(message, self.print_dice(dice))
+                self.say(message, self.print_dice_one_liner(
+                    dice + [(value, None)]))
+
+            self.say(message, "**{}**".format(value))
             await self.send(message)
-            return
-
-        dice = util.dice.rolled_dice
-        if len(dice) > 0:
-            self.say(message, self.print_dice(dice))
-            self.say(message, self.print_dice_one_liner(
-                dice + [(value, None)]))
-
-        self.say(message, "**{}**".format(value))
-        await self.send(message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())

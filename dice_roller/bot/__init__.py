@@ -24,16 +24,16 @@ class Bot:
             def __init__(self, message):
                 self.message = message
 
-        session = db.database.createSession()
-        user = db.database.getUserFromCtx(session, CtxTmp(message))[0]
-        if message.channel.type in [
-                discord.ChannelType.private,
-                discord.ChannelType.group]:
-            # Get all the prefixes from each server the user is a part of
-            prefixes = [s.prefix for s in user.servers]
-            return prefixes + [commands.when_mentioned(bot, message)]
+        with db.database.session() as session:
+            user = db.database.getUserFromCtx(session, CtxTmp(message))[0]
+            if message.channel.type in [
+                    discord.ChannelType.private,
+                    discord.ChannelType.group]:
+                # Get all the prefixes from each server the user is a part of
+                prefixes = [s.prefix for s in user.servers]
+                return prefixes + [commands.when_mentioned(bot, message)]
 
-        server = user.active_server
+            server = user.active_server
 
         # Add the optional @ mention
         return [server.prefix, commands.when_mentioned(bot, message)]

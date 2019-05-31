@@ -2,6 +2,9 @@ import os
 import sqlalchemy
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
+from contextlib import contextmanager
+
+import functools
 import logging
 
 import re
@@ -72,6 +75,17 @@ class Database:
 
     def createSession(self):
         return self._session()
+
+    @contextmanager
+    def session(self):
+        session = self.createSession()
+        try:
+            yield session
+        except:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def getServer(self, session, server_id, commit=True, **kwargs):
         """
