@@ -76,7 +76,8 @@ class Equations:
 
             your_eqs = user.equations
             other_eqs = session.query(db.schema.Equation).filter(
-                db.schema.Equation.creator_id != user.id
+                db.schema.Equation.creator_id != user.id,
+                db.schema.Equation.server_id == user.active_server_id
             ).all()
 
             if len(your_eqs) + len(other_eqs) == 0:

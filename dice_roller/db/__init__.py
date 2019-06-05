@@ -83,6 +83,7 @@ class Database:
             yield session
         except:
             session.rollback()
+            session.close()
             raise
         finally:
             session.close()
@@ -122,7 +123,7 @@ class Database:
                 (update_server and server_id != value[0].active_server_id)):
             server = self.getServer(session, server_id, commit=False)
 
-            value = (value[0], value[1] or server[1])
+            value = (value[0], True)
             value[0].active_server = server[0]
 
             if value[1]:

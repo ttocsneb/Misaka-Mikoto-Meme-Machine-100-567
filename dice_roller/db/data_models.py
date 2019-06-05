@@ -4,7 +4,8 @@ import collections
 
 class Stats(collections.MutableMapping):
 
-    def __init__(self, stats):
+    def __init__(self, user, stats):
+        self._user = user
         self._stats = stats
 
     def __getitem__(self, key):
@@ -22,7 +23,10 @@ class Stats(collections.MutableMapping):
             stat = Stat()
             stat.name = key
             stat.value = value
+            stat.user_id = self._user.id
+            stat.server_id = self._user.active_server_id
             self._stats.append(stat)
+            self._user.stats_list.append(stat)
 
     def __len__(self):
         return len(self._stats)
@@ -34,6 +38,7 @@ class Stats(collections.MutableMapping):
     def __delitem__(self, key):
         stat = self[key]
         self._stats.remove(stat)
+        self._user.all_stats.remove(stat)
 
     def __str__(self):
         return "{" + ",".join(

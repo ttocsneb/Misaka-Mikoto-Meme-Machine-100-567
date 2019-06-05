@@ -185,13 +185,13 @@ class User(Base):
     tables = relationship(Table, backref='creator')
 
     all_stats = property(
-        lambda self: data_models.Stats(self.stats_list)
+        lambda self: data_models.Stats(self, self.stats_list)
     )
 
     @property
     def stats(self):
         session = Session.object_session(self)
-        return data_models.Stats(session.query(Stat).filter(
+        return data_models.Stats(self, session.query(Stat).filter(
             Stat.user_id == self.id,
             Stat.server_id == self.active_server_id
         ).order_by(Stat.name).all())
