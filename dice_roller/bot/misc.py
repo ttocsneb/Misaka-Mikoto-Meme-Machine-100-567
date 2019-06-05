@@ -115,14 +115,32 @@ class Misc:
         """
 
         with db.database.session() as session:
-            server = db.database.getServerFromCtx(session, ctx)[0]
+            db_server = db.database.getServerFromCtx(session, ctx)[0]
+            server = ctx.message.server
+            if server is None:
+
+                async def error():
+                    await self.bot.say("You can't use this command here")
+
+                if db_server is None:
+                    await error()
+                    return
+
+                sid = str(db_server.id)
+
+                try:
+                    server = next(i for i in self.bot.servers if i.id == sid)
+                except StopIteration:
+                    await error()
+                    return
 
             try:
-                role = [role for role in ctx.message.server.roles
-                        if int(role.id) == server.mod_id][0]
+                mod_id = str(db_server.mod_id)
+                role = next(role for role in server.roles
+                            if role.id == mod_id)
                 await self.bot.say(
                     "The current moderator role is **{}**".format(role.name))
-            except IndexError:
+            except StopIteration:
                 await self.bot.say("There is no moderator set")
 
     @commands.command(pass_context=True, usage="<role>",
