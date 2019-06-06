@@ -3,8 +3,8 @@ import asyncio
 
 from discord.ext import commands
 
-from ..config import config
 from .. import util
+from ..util import variables
 from .. import db
 
 
@@ -24,25 +24,12 @@ class Equations:
         if message:
             await self.bot.say(message)
 
-    def get_server(self, ctx: commands.Context, message=None) -> db.Server:
-        # If the message is not part of a server, get the active server from
-        # the author
-
-        server = db.getDbFromCtx(ctx)
-        if server is None:
-            if message is not None:
-                self.say(message,
-                         "You don't have an active server right now :/")
-                self.say(message, "Activate the server you want to use first.")
-        return server
-
-    def get_user(self, ctx: commands.Context, session) -> db.server.User:
-        return db.Server.getUser(session, ctx.message.author.id)
+    def get_user(self, ctx: commands.Context, session, commit=True
+                 ) -> db.schema.User:
+        return db.database.getUserFromCtx(session, ctx, commit)[0]
 
     def get_num_params(self, text):
-        from string import Formatter
-        params = [fn for _, fn, _, _ in Formatter().parse(text)
-                  if fn is not None]
+        params = variables.getVariables(text)
 
         def is_int(text):
             try:
@@ -53,9 +40,10 @@ class Equations:
         args = [p for p in params if is_int(p) is not False]
         return len(set(args))
 
-    def get_equation(self, ctx, message, session, name) -> db.server.Equation:
-        equation = db.Server.get_from_string(session, db.server.Equation, name,
-                                             ctx.message.author.id)
+    def get_equation(self, user, message, session, name) -> db.schema.Equation:
+        equation = db.database.get_from_string(
+            session, db.schema.Equation, name,
+            user.active_server_id, user.id)
 
         if equation is not None:
             return equation
@@ -79,30 +67,31 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session)
+
+            if user is None:
+                await self.bot.say("You don't have an active server!")
+                return
+
+            your_eqs = user.equations
+            other_eqs = session.query(db.schema.Equation).filter(
+                db.schema.Equation.creator_id != user.id,
+                db.schema.Equation.server_id == user.active_server_id
+            ).all()
+
+            if len(your_eqs) + len(other_eqs) == 0:
+                self.say(message, 'There are no equations yet.')
+                await self.say_message(message)
+                return
+
+            self.say(message, 'here is a list of all the equations:')
+            self.say(message, '```markdown\nYour Equations:\n' + '-' * 10)
+            self.say(message, '\n'.join([eq.printName() for eq in your_eqs]))
+            self.say(message, '\nOther Equations:\n' + '-' * 10)
+            self.say(message, '\n'.join([eq.printName() for eq in other_eqs]))
+            self.say(message, '```')
             await self.say_message(message)
-            return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
-
-        your_eqs = user.equations
-        other_eqs = session.query(db.server.Equation).filter(
-            db.server.Equation.creator_id != user.id
-        ).all()
-
-        if len(your_eqs) + len(other_eqs) is 0:
-            self.say(message, 'There are no equations yet.')
-            await self.say_message(message)
-            return
-
-        self.say(message, 'here is a list of all the equations:')
-        self.say(message, '```markdown\nYour Equations:\n' + '-' * 10)
-        self.say(message, '\n'.join([eq.printName() for eq in your_eqs]))
-        self.say(message, '\nOther Equations:\n' + '-' * 10)
-        self.say(message, '\n'.join([eq.printName() for eq in other_eqs]))
-        self.say(message, '```')
-        await self.say_message(message)
 
     @equations.command(pass_context=True, usage='<eq name>')
     async def show(self, ctx: commands.Context, table_name: str):
@@ -111,21 +100,22 @@ class Equations:
         """
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session)
+
+            if user is None:
+                await self.bot.say("You don't have an active server!")
+                return
+
+            equation = self.get_equation(user, message, session, table_name)
+
+            if equation is not None:
+                self.say(message, equation.printName())
+                self.say(message, "```python")
+                self.say(message, equation.value)
+                self.say(message, "```")
+
             await self.say_message(message)
-            return
-        session = server.createSession()
-
-        equation = self.get_equation(ctx, message, session, table_name)
-
-        if equation is not None:
-            self.say(message, equation.printName())
-            self.say(message, "```python")
-            self.say(message, equation.equation)
-            self.say(message, "```")
-
-        await self.say_message(message)
 
     @equations.command(pass_context=True, usage='<eq name> <equation>')
     async def add(self, ctx: commands.Context, table_name: str, *,
@@ -144,27 +134,25 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, commit=False)
+
+            if user is None:
+                await self.bot.say("You don't have an active server!")
+                return
+
+            new_eq = db.schema.Equation(server_id=user.active_server_id)
+            new_eq.name = table_name.lower()
+            new_eq.creator_id = user.id
+            new_eq.value = equation.lower()
+            new_eq.params = self.get_num_params(new_eq.value)
+            new_eq.desc = ''
+
+            session.add(new_eq)
+            session.commit()
+
+            self.say(message, "Created Equation " + new_eq.printName())
             await self.say_message(message)
-            return
-        session = server.createSession()
-
-        user = self.get_user(ctx, session)
-        data = server.getData(session)
-
-        new_eq = db.server.Equation(id=data.getNewId())
-        new_eq.name = table_name.lower()
-        new_eq.creator_id = user.id
-        new_eq.equation = equation.lower()
-        new_eq.params = self.get_num_params(new_eq.equation)
-        new_eq.desc = ''
-
-        session.add(new_eq)
-        session.commit()
-
-        self.say(message, "Created Equation " + new_eq.printName())
-        await self.say_message(message)
 
     @equations.command(pass_context=True, usage="<eq name> <description>")
     async def desc(self, ctx: commands.Context, table_name: str, *,
@@ -175,25 +163,25 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, commit=False)
+
+            if user is None:
+                await self.bot.say("You don't have an active server!")
+                return
+
+            equation = self.get_equation(user, message, session, table_name)
+
+            if equation is not None:
+                if user.checkPermissions(ctx, equation):
+                    equation.desc = description
+                    session.commit()
+                    self.say(message, "Changed {} description".format(
+                        equation.printName()))
+                else:
+                    self.say(message, "You don't have permission to do that")
+
             await self.say_message(message)
-            return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
-
-        equation = self.get_equation(ctx, message, session, table_name)
-
-        if equation is not None:
-            if user.checkPermissions(ctx, equation):
-                equation.desc = description
-                session.commit()
-                self.say(message, "Changed {} description".format(
-                    equation.printName()))
-            else:
-                self.say(message, "You don't have permission to do that")
-
-        await self.say_message(message)
 
     @equations.command(pass_context=True, usage="<eq name> <equation>")
     async def edit(self, ctx: commands.Context, eq_name: str, *, eq):
@@ -203,40 +191,41 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
-            await self.say_message(message)
-            return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, commit=False)
 
-        equation = self.get_equation(ctx, message, session, eq_name)
+            if user is None:
+                await self.bot.say("You don't have an active server!")
+                return
 
-        if equation is not None:
-            if user.checkPermissions(ctx, equation):
-                equation.equation = eq.lower()
-                equation.params = self.get_num_params(eq)
+            equation = self.get_equation(user, message, session, eq_name)
 
-                from . import stats
-                success = stats.Stats.update_stats_equations(session, equation)
+            if equation is not None:
+                if user.checkPermissions(ctx, equation):
+                    equation.value = eq.lower()
+                    equation.params = self.get_num_params(eq)
 
-                session.commit()
+                    from . import stats
+                    success = stats.Stats.update_stats_equations(
+                        session, user.active_server, equation)
 
-                if success:
-                    self.say(message, "Changed {} equation".format(
-                        equation.printName()))
+                    session.commit()
+
+                    if success:
+                        self.say(message, "Changed {} equation".format(
+                            equation.printName()))
+                    else:
+                        self.say(message,
+                                "There were errors while updating everyone's stats")
+                        self.say(message,
+                                "Make sure that stats are updated, or that this equation is backwards compatible.")
+                        self.say(message,
+                                "\nThe equation {} is still changed though."
+                                .format(equation.printName()))
                 else:
-                    self.say(message,
-                             "There were errors while updating everyone's stats")
-                    self.say(message,
-                             "Make sure that stats are updated, or that this equation is backwards compatible.")
-                    self.say(message,
-                             "\nThe equation {} is still changed though."
-                             .format(equation.printName()))
-            else:
-                self.say(message, "You don't have permission for that.")
+                    self.say(message, "You don't have permission for that.")
 
-        await self.say_message(message)
+            await self.say_message(message)
 
     @equations.command(pass_context=True, usage="<eq name>", name='del')
     async def _del(self, ctx: commands.Context, eq_name: str):
@@ -246,25 +235,25 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, commit=False)
+
+            if user is None:
+                await self.bot.say("You don't have an active server!")
+                return
+
+            equation = self.get_equation(user, message, session, eq_name)
+
+            if equation is not None:
+                if user.checkPermissions(ctx, equation):
+                    name = equation.printName()
+                    session.delete(equation)
+                    session.commit()
+                    self.say(message, "Deleted " + name)
+                else:
+                    self.say(message, "Sorry, your not allowed to do that :/")
+
             await self.say_message(message)
-            return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
-
-        equation = self.get_equation(ctx, message, session, eq_name)
-
-        if equation is not None:
-            if user.checkPermissions(ctx, equation):
-                name = equation.printName()
-                session.delete(equation)
-                session.commit()
-                self.say(message, "Deleted " + name)
-            else:
-                self.say(message, "Sorry, your not allowed to do that :/")
-
-        await self.say_message(message)
 
     @equations.command(pass_context=True, usage="<eq name> [<param 0>,]",
                        aliases=['roll'])
@@ -277,35 +266,35 @@ class Equations:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session)
+
+            if user is None:
+                await self.bot.say("You don't have an active server!")
+                return
+
+            equation = self.get_equation(user, message, session, eq_name)
+
+            if equation is not None:
+                try:
+                    eq = util.calculator.parse_args(equation.value, session,
+                                                    user, args)
+                    util.dice.logging_enabled = True
+                    value = util.calculator.parse_equation(eq, session, user)
+                    util.dice.logging_enabled = False
+
+                    dice = util.dice.rolled_dice
+                    if len(dice) > 0:
+                        from .dice import Dice
+                        self.say(message, Dice.print_dice(dice))
+                        self.say(message, Dice.print_dice_one_liner(
+                            dice + [(value, "sum")]))
+
+                    self.say(message, "**{}**".format(value))
+                except util.BadEquation as be:
+                    self.say(message, be)
+
             await self.say_message(message)
-            return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
-
-        equation = self.get_equation(ctx, message, session, eq_name)
-
-        if equation is not None:
-            try:
-                eq = util.calculator.parse_args(equation.equation, session,
-                                                user, args)
-                util.dice.logging_enabled = True
-                value = util.calculator.parse_equation(eq, session, user)
-                util.dice.logging_enabled = False
-
-                dice = util.dice.rolled_dice
-                if len(dice) > 0:
-                    from .dice import Dice
-                    self.say(message, Dice.print_dice(dice))
-                    self.say(message, Dice.print_dice_one_liner(
-                        dice + [(value, "sum")]))
-
-                self.say(message, "**{}**".format(value))
-            except util.BadEquation as be:
-                self.say(message, be)
-
-        await self.say_message(message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())

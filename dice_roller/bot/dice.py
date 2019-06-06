@@ -46,13 +46,16 @@ class Dice:
         for die in dice:
             if die[0] == 1 or die[0] == die[1] \
                     or die[1] == 1 \
-                    or str(die[0]) in config.lines.on_roll:
+                    or config.lines.on_roll.contains(die[0]):
                 one_liners.append(die)
 
-        if len(one_liners) is not 0:
+        if one_liners:
             one_liner = util.get_random_index(one_liners)
 
-            line = "[{li[0]}/{li[1]}]: ".format(li=one_liner)
+            if one_liner[1] is not None:
+                line = "[{li[0]}/{li[1]}]: ".format(li=one_liner)
+            else:
+                line = ''
 
             if one_liner[1] == 1 or one_liner[1] == 0:
                 return line + util.get_random_index(config.lines.dumb)
@@ -63,9 +66,9 @@ class Dice:
             if one_liner[0] == one_liner[1]:
                 return line + util.get_random_index(config.lines.crits)
 
-            if str(one_liner[0]) in config.lines.on_roll:
-                return line + util.get_random_index(
-                    config.lines.on_roll[str(one_liner[0])])
+            lines = config.lines.on_roll.getAll(one_liner[0])
+            if lines:
+                return line + util.get_random_index(lines)
 
     @staticmethod
     def say(messages, text):
@@ -74,18 +77,6 @@ class Dice:
 
     async def send(self, messages):
         await self.bot.say('\n'.join(messages))
-
-    def get_server(self, ctx: commands.Context, message=None) -> db.Server:
-        # If the message is not part of a server, get the active server from
-        # the author
-
-        server = db.getDbFromCtx(ctx)
-        if server is None:
-            if message is not None:
-                self.say(message,
-                         "You don't have an active server right now :/")
-                self.say(message, "Activate the server you want to use first.")
-        return server
 
     @commands.command(pass_context=True, aliases=['calc'])
     async def roll(self, ctx: commands.Context, *, equation: str):
@@ -125,33 +116,29 @@ class Dice:
         message = list()
 
         # Parse any variables in the equation first
-        server = self.get_server(ctx)
-        if server is not None:
-            session = server.createSession()
-            user = server.getUser(session, ctx.message.author.id)
-        else:
-            session = None
-            user = None
+        with db.database.session() as session:
+            user, _ = db.database.getUserFromCtx(session, ctx)
+            server, _ = db.database.getServerFromCtx(session, ctx)
 
-        try:
-            if server is not None:
-                equation = util.calculator.parse_args(equation, session, user)
-            util.dice.logging_enabled = True
-            value = util.calculator.parse_equation(equation, session, user)
-            util.dice.logging_enabled = False
-        except util.BadEquation as exception:
-            self.say(message, exception)
+            try:
+                if server is not None:
+                    equation = util.calculator.parse_args(equation, session, user)
+                util.dice.logging_enabled = True
+                value = util.calculator.parse_equation(equation, session, user)
+                util.dice.logging_enabled = False
+            except util.BadEquation as exception:
+                self.say(message, exception)
+                await self.send(message)
+                return
+
+            dice = util.dice.rolled_dice
+            if len(dice) > 0:
+                self.say(message, self.print_dice(dice))
+                self.say(message, self.print_dice_one_liner(
+                    dice + [(value, None)]))
+
+            self.say(message, "**{}**".format(value))
             await self.send(message)
-            return
-
-        dice = util.dice.rolled_dice
-        if len(dice) > 0:
-            self.say(message, self.print_dice(dice))
-            self.say(message, self.print_dice_one_liner(
-                dice + [(value, "sum")]))
-
-        self.say(message, "**{}**".format(value))
-        await self.send(message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())

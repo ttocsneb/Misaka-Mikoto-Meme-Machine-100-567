@@ -3,7 +3,7 @@
 
 # Discord Dice Roller Bot
 
-This bot is still in early alpha stages of development and so an invite link is not yet available.  If you would still like to try out this bot, you can download and install the software.
+This bot is still in early stages of development, but you can invite it to your server [using this link](https://discordapp.com/api/oauth2/authorize?client_id=528642271885787137&permissions=0&scope=bot).  It may run on stable development builds ahead of the master branch.  If you would like to host this bot yourself, you are welcome to!
 
 ## installation
 
@@ -17,12 +17,10 @@ Next, create the venv in the project directory `python3 -m virtualenv venv`
 
 2. Run the installer.
 
-If you are on windows, run install.bat
-
-If you are on linux(raspi) or use mingw, run install.sh
+You can either install manually using the command `python -m pip install -r requirements.txt` after sourcing venv, or by running `install.bat`/`install.sh`
 
 3. Start the bot
 
-You can start the bot with install.bat or install.sh
+You can start the bot with start.bat or start.sh or start.py
 
-If on linux, you can also run `source venv/bin/activate && dm_assist`
+If on linux, you can also run `source venv/bin/activate && dice_roller`

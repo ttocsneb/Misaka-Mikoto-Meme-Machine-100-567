@@ -2,7 +2,7 @@ import re
 import math
 import collections
 
-from . import dice, BadEquation
+from . import dice, BadEquation, variables
 from .. import db
 
 
@@ -40,6 +40,11 @@ class FunctionDict(collections.Mapping):
     def __len__(self):
         return len(self._func)
 
+    def __str__(self):
+        return '{{{}}}'.format(', '.join(
+            '{}: {}'.format(i, v) for i, v in self.items()
+        ))
+
 
 class Calculator:
     """
@@ -54,6 +59,7 @@ class Calculator:
 
     # Lower numbers mean a lower precedence (it is less important)
     precedence = FunctionDict({
+        'true': 1, 'false': 1,
         '<': 1, '>': 1, '=': 1, '<>': 1, '<=': 1, '>=': 1, 'or': 1, 'and': 1,
         '+': 2, '-': 2,
         '*': 3, '/': 3,
@@ -73,7 +79,9 @@ class Calculator:
         'bot': 3,
         'floor': 1,
         'ceil': 1,
-        'if': 3
+        'if': 3,
+        'true': 0,
+        'false': 0
     })
 
     # All the functions are defined here as lambdas.
@@ -108,7 +116,12 @@ class Calculator:
         'max': lambda a, b: max(a, b),
         'min': lambda a, b: min(a, b),
         'floor': lambda a: math.floor(a),
-        'ceil': lambda a: math.ceil(a)
+        'ceil': lambda a: math.ceil(a),
+
+        # Constants
+        'true': lambda: 1,
+        'false': lambda: 0
+
     })
 
     def __init__(self):
@@ -258,7 +271,7 @@ class Calculator:
 
         loop = 0
         stats = dict()
-        for stat in user.stats:
+        for stat in user.stats.values():
             stats[stat.name] = stat.getValue()
 
         while len(re.findall(self._check_vars_regex, equation)) > 0:
@@ -266,7 +279,7 @@ class Calculator:
             if loop >= 20:
                 raise BadEquation("Too much recursion in the equation!")
             try:
-                equation = equation.format(*args, **stats)
+                equation = variables.setVariables(equation, *args, **stats)
             except KeyError:
                 from string import Formatter
                 params = [fn for _, fn, _, _ in Formatter().parse(equation)
@@ -317,7 +330,7 @@ class Calculator:
 
         # Add the custom equations to the equation list
         if session is not None:
-            repeats = dict() if _repeats is None else repeats
+            repeats = dict() if _repeats is None else _repeats
 
             def getEquation(eq_name):
                 try:
@@ -325,8 +338,9 @@ class Calculator:
                 except KeyError:
                     pass
                 if user is not None:
-                    eq = db.Server.get_from_string(session, db.server.Equation,
-                                                   eq_name, user.id)
+                    eq = db.database.get_from_string(
+                        session, db.schema.Equation, eq_name,
+                        user.active_server.id, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq
@@ -338,14 +352,15 @@ class Calculator:
                 except KeyError:
                     pass
                 if user is not None:
-                    eq = db.Server.get_from_string(session, db.server.Equation,
-                                                   eq_name, user.id)
+                    eq = db.database.get_from_string(
+                        session, db.schema.Equation, eq_name,
+                        user.active_server.id, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq
 
                 return lambda *args: self.parse_equation(
-                    self.parse_args(eq.equation, session, user, args),
+                    self.parse_args(eq.value, session, user, args),
                     session,
                     user,
                     _recursed=_recursed + 1)
@@ -356,8 +371,9 @@ class Calculator:
                 except KeyError:
                     pass
                 if user is not None:
-                    eq = db.Server.get_from_string(session, db.server.Equation,
-                                                   eq_name, user.id)
+                    eq = db.database.get_from_string(
+                        session, db.schema.Equation, eq_name,
+                        user.active_server.id, user.id)
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq

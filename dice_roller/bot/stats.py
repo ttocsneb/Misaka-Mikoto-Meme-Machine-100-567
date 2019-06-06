@@ -23,36 +23,47 @@ class Stats:
         if message:
             await self.bot.say(message)
 
-    def get_server(self, ctx: commands.Context, message=None) -> db.Server:
+    def get_server(self, ctx: commands.Context, session, message,
+                   commit=True) -> db.schema.Server:
 
-        server = db.getDbFromCtx(ctx)
+        server = db.database.getServerFromCtx(session, ctx, commit=commit)[0]
         if server is None:
             if message is not None:
                 self.say(message, "You don't have an active server.")
         return server
 
-    def get_user(self, ctx: commands.Context, session) -> db.server.User:
-        return db.Server.getUser(session, ctx.message.author.id)
+    def get_user(self, ctx: commands.Context, session, message,
+                 commit=True) -> db.schema.User:
+        user = db.database.getUserFromCtx(session, ctx, commit=commit)[0]
+        if user is None and message is not None:
+            self.say(
+                message,
+                "You aren't registered with any server and can't register here!"
+            )
+        return user
 
     @classmethod
-    def update_stats_equations(cls, session, eq: db.server.Equation):
+    def update_stats_equations(cls, session, server, eq: db.schema.Equation):
         """
         update the calculated equations for all stats that use the given
         equation
         """
 
-        stats = session.query(db.server.Stat).all()
+        stats = session.query(db.schema.Stat).filter(
+            db.schema.Stat.server_id == server.id
+        ).all()
 
         errors = False
 
         for stat in stats:
-            user = session.query(db.server.User).get(stat.user_id)
+            user = session.query(db.schema.User).get(stat.user_id)
             parsed = util.calculator.parse_args(stat.value.lower(), session,
                                                 user)
             parsed = util.calculator._get_elements(parsed)
 
-            if any(db.Server.get_from_string(
-                    session, db.server.Equation, s) == eq for s in parsed):
+            if any(db.database.get_from_string(
+                    session, db.schema.Equation, s, server.id) == eq
+                    for s in parsed):
 
                 try:
                     cls.calc_stat_value(session, user, stat)
@@ -65,8 +76,8 @@ class Stats:
         return not errors
 
     @classmethod
-    def calc_stat_value(cls, session, user: db.server.User,
-                        stat: db.server.Stat, parse_randoms=False):
+    def calc_stat_value(cls, session, user: db.schema.User,
+                        stat: db.schema.Stat, parse_randoms=False):
         """
         Calculate the stat values for the given stat, and all stats that depend
         on this stat.
@@ -86,7 +97,7 @@ class Stats:
 
         dice = util.dice.rolled_dice
 
-        if len(dice) is 0 or parse_randoms is True:
+        if not dice or parse_randoms is True:
             # 3. set calc to calculated equation
             stat.calc = value
 
@@ -96,7 +107,7 @@ class Stats:
 
         from string import Formatter
         name = stat.name.lower()
-        for st in user.stats:
+        for st in user.stats.values():
             params = [fn for _, fn, _, _
                       in Formatter().parse(str(st.value).lower())
                       if fn is not None]
@@ -134,60 +145,58 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, True)
+            if user is None:
+                await self.send(message)
+                return
+
+            stats = user.stats
+
+            if len(stats) == 0:
+                self.say(message, "You don't have any stats yet")
+                await self.send(message)
+                return
+
+            self.say(message, "```python")
+
+            max_name_width = list()
+            max_val_width = list()
+
+            default = "?"
+
+            for name, stat in stats.items():
+                max_name_width.append(len(name))
+                if stat.calc is not None:
+                    val = int(stat.calc) if int(stat.calc) == stat.calc \
+                        else stat.calc
+                    max_val_width.append(len(str(val)))
+                else:
+                    max_val_width.append(len(default))
+
+            max_name_width = max(max_name_width)
+            max_val_width = max(max_val_width)
+
+            for name, stat in stats.items():
+                if stat.calc is not None:
+                    val = int(stat.calc) if int(stat.calc) == stat.calc \
+                        else stat.calc
+                else:
+                    val = default
+
+                if str(val) != stat.value:
+                    self.say(message, "{0:>{wid_n}}  {1:<{wid_v}} = {2}".format(
+                        name, val, stat.value, wid_n=max_name_width,
+                        wid_v=max_val_width
+                    ))
+                else:
+                    self.say(message, "{0:>{wid_n}}  {1}".format(
+                        name, val, wid_n=max_name_width
+                    ))
+
+            self.say(message, "```")
+
             await self.send(message)
-            return
-
-        session = server.createSession()
-        user = self.get_user(ctx, session)
-
-        stats = user.stats
-
-        if len(stats) == 0:
-            self.say(message, "You don't have any stats yet")
-            await self.send(message)
-            return
-
-        self.say(message, "```python")
-
-        max_name_width = list()
-        max_val_width = list()
-
-        default = "?"
-
-        for stat in stats:
-            max_name_width.append(len(stat.name))
-            if stat.calc is not None:
-                val = int(stat.calc) if int(stat.calc) == stat.calc \
-                    else stat.calc
-                max_val_width.append(len(str(val)))
-            else:
-                max_val_width.append(len(default))
-
-        max_name_width = max(max_name_width)
-        max_val_width = max(max_val_width)
-
-        for stat in stats:
-            if stat.calc is not None:
-                val = int(stat.calc) if int(stat.calc) == stat.calc \
-                    else stat.calc
-            else:
-                val = default
-
-            if str(val) != stat.value:
-                self.say(message, "{0:>{wid_n}}  {1:<{wid_v}} = {2}".format(
-                    stat.name, val, stat.value, wid_n=max_name_width,
-                    wid_v=max_val_width
-                ))
-            else:
-                self.say(message, "{0:>{wid_n}}  {1}".format(
-                    stat.name, val, wid_n=max_name_width
-                ))
-
-        self.say(message, "```")
-
-        await self.send(message)
 
     @stats.command(pass_context=True, usage="<stat> value",
                    aliases=['add', 'edit'], name='set')
@@ -200,43 +209,41 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
-            await self.send(message)
-            return
-        session = server.createSession()
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, False)
+            if user is None:
+                await self.send(message)
+                return
 
-        user = self.get_user(ctx, session)
+            stats = user.stats
 
-        stats = user.getStats()
+            stats[stat.lower()] = value.lower()
 
-        stats[stat.lower()] = value.lower()
+            stat = stats[stat.lower()]
 
-        stat = stats[stat.lower()]
+            try:
+                self.calc_stat_value(session, user, stat)
+            except util.BadEquation as be:
+                self.say(message, "Invalid equation: " + str(be))
+                await self.send(message)
+                session.rollback()
+                return
+            session.commit()
 
-        try:
-            self.calc_stat_value(session, user, stat)
-        except util.BadEquation as be:
-            self.say(message, "Invalid equation: " + str(be))
-            await self.send(message)
-            session.rollback()
-            return
-        session.commit()
-
-        self.say(message, "Set **{}** stat to".format(stat.name))
-        self.say(message, "```python")
-        if stat.calc is not None:
-            calc = int(stat.calc) if int(stat.calc) == stat.calc else stat.calc
-            if str(calc) == stat.value:
-                val = str(calc)
+            self.say(message, "Set **{}** stat to".format(stat.name))
+            self.say(message, "```python")
+            if stat.calc is not None:
+                calc = int(stat.calc) if int(stat.calc) == stat.calc else stat.calc
+                if str(calc) == stat.value:
+                    val = str(calc)
+                else:
+                    val = "{}  ({})".format(calc, stat.value)
             else:
-                val = "{}  ({})".format(calc, stat.value)
-        else:
-            val = stat.value
-        self.say(message, val)
-        self.say(message, "```")
+                val = stat.value
+            self.say(message, val)
+            self.say(message, "```")
 
-        await self.send(message)
+            await self.send(message)
 
     @stats.command(pass_context=True, usage="<stat>", aliases=['rm'],
                    name='del')
@@ -247,25 +254,23 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, False)
+            if user is None:
+                await self.send(message)
+                return
+
+            stats = user.stats
+
+            try:
+                del stats[stat.lower()]
+                session.commit()
+
+                self.say(message, "Deleted your **{}** stat".format(stat.lower()))
+            except KeyError:
+                self.say(message, "Could not find **{}**".format(stat.lower()))
+
             await self.send(message)
-            return
-        session = server.createSession()
-
-        user = self.get_user(ctx, session)
-
-        stats = user.getStats()
-
-        try:
-            del stats[stat.lower()]
-            session.commit()
-
-            self.say(message, "Deleted your **{}** stat".format(stat.lower()))
-        except KeyError:
-            self.say(message, "Could not find **{}**".format(stat.lower()))
-
-        await self.send(message)
 
     @commands.group(pass_context=True,
                     aliases=['rollstats', 'confstats', 'gs', 'rs', 'cs'])
@@ -284,34 +289,36 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, True)
+            if user is None:
+                await self.send(message)
+                return
+
+            stats = session.query(db.schema.RollStat).filter(
+                db.schema.RollStat.server_id == user.active_server_id
+            ).order_by(
+                db.schema.RollStat.name
+            ).all()
+
+            if not stats:
+                self.say(message, "There are no default stats yet.")
+                await self.send(message)
+                return
+
+            self.say(message, "```python")
+
+            max_name_width = max([len(stat.name) for stat in stats])
+
+            for stat in stats:
+                self.say(message, "{0: >{width}}  {1}".format(
+                    stat.name, stat.value,
+                    width=max_name_width
+                ))
+
+            self.say(message, "```")
+
             await self.send(message)
-            return
-        session = server.createSession()
-
-        stats = session.query(db.server.RollStat).order_by(
-            db.server.RollStat.name
-        ).all()
-
-        if len(stats) is 0:
-            self.say(message, "There are no default stats yet.")
-            await self.send(message)
-            return
-
-        self.say(message, "```python")
-
-        max_name_width = max([len(stat.name) for stat in stats])
-
-        for stat in stats:
-            self.say(message, "{0: >{width}}  {1}".format(
-                stat.name, stat.value,
-                width=max_name_width
-            ))
-
-        self.say(message, "```")
-
-        await self.send(message)
 
     @getstats.command(pass_context=True, name="apply", aliases=['roll'])
     async def gs_apply(self, ctx: commands.Context):
@@ -323,65 +330,59 @@ class Stats:
         """
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, False)
+            if user is None:
+                await self.send(message)
+                return
+
+            # Send the typing signal to discord
+            await self.bot.send_typing(ctx.message.channel)
+
+            stats = user.stats
+            defaults = session.query(db.schema.RollStat).filter(
+                db.schema.RollStat.server_id == user.active_server_id
+            ).all()
+
+            # Set all the stats first
+            for default in defaults:
+                stats[default.name] = default.value
+
+            errors = list()
+
+            # calculate the stats
+            for default in defaults:
+                stat = stats[default.name]
+                try:
+                    if util.dice.low:
+                        await util.dice.load_random_buffer()
+
+                    dice = self.calc_stat_value(session, user, stat,
+                                                parse_randoms=True)
+
+                    if len(dice) != 0:
+                        stat.value = stat.calc
+
+                        from .dice import Dice
+                        self.say(message, Dice.print_dice(dice))
+                        calc = int(stat.calc) if int(stat.calc) is stat.calc \
+                            else stat.calc
+                        self.say(message, "{}: **{}**".format(stat.name, calc))
+                except util.BadEquation as be:
+                    self.say(errors, "There was an error while setting {}:".format(
+                        stat.name))
+                    self.say(errors, str(be))
+
+            session.commit()
+
+            message.extend(errors)
+
+            self.say(message, "I set your stats!")
+
             await self.send(message)
-            return
-        session = server.createSession()
-
-        # Send the typing signal to discord
-        await self.bot.send_typing(ctx.message.channel)
-
-        user = self.get_user(ctx, session)
-
-        stats = user.getStats()
-        defaults = session.query(db.server.RollStat).all()
-
-        # Set all the stats first
-        for default in defaults:
-            stats[default.name] = default.value
-
-        errors = list()
-
-        # calculate the stats
-        for default in defaults:
-            stat = stats[default.name]
-            try:
-                if util.dice.low:
-                    await util.dice.load_random_buffer()
-
-                dice = self.calc_stat_value(session, user, stat,
-                                            parse_randoms=True)
-
-                if len(dice) != 0:
-                    stat.value = stat.calc
-
-                    from .dice import Dice
-                    self.say(message, Dice.print_dice(dice))
-                    calc = int(stat.calc) if int(stat.calc) is stat.calc \
-                        else stat.calc
-                    self.say(message, "{}: **{}**".format(stat.name, calc))
-            except util.BadEquation as be:
-                self.say(errors, "There was an error while setting {}:".format(
-                    stat.name))
-                self.say(errors, str(be))
-
-        session.commit()
-
-        message.extend(errors)
-
-        self.say(message, "I set your stats!")
-
-        await self.send(message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
-
-    @getstats.command(pass_context=True, name="show")
-    async def gs_show(self, ctx: commands.Context):
-        """
-        Show all the default stats
-        """
 
     @getstats.command(pass_context=True, usage="<stat> <value>", name="set",
                       aliases=['add', 'edit'])
@@ -393,39 +394,38 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, False)
+            if user is None:
+                await self.send(message)
+                return
+
+            if not user.checkPermissions(ctx):
+                self.say(message, "You don't have permission to do that.")
+                await self.send(message)
+                return
+
+            stat = session.query(db.schema.RollStat).filter(
+                db.schema.RollStat.server_id == user.active_server_id,
+                db.schema.RollStat.name == stat_name.lower()
+            ).first()
+
+            if stat is None:
+                stat = db.schema.RollStat(server_id=user.active_server_id)
+                stat.name = stat_name.lower()
+                session.add(stat)
+
+            stat.value = value.lower()
+
+            session.commit()
+
+            self.say(message, "Changed the default stat for {} to".format(
+                stat.name))
+            self.say(message, "```python")
+            self.say(message, stat.value)
+            self.say(message, "```")
+
             await self.send(message)
-            return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
-
-        if not user.checkPermissions(ctx):
-            self.say(message, "You don't have permission to do that.")
-            await self.send(message)
-            return
-
-        stat = session.query(db.server.RollStat).filter(
-            db.server.RollStat.name == stat_name.lower()
-        ).first()
-
-        if stat is None:
-            data = db.Server.getData(session)
-            stat = db.server.RollStat(id=data.getNewId())
-            stat.name = stat_name.lower()
-            session.add(stat)
-
-        stat.value = value.lower()
-
-        session.commit()
-
-        self.say(message, "Changed the default stat for {} to".format(
-            stat.name))
-        self.say(message, "```python")
-        self.say(message, stat.value)
-        self.say(message, "```")
-
-        await self.send(message)
 
     @getstats.command(pass_context=True, usage="<stat>", name="del",
                       aliases=['rm'])
@@ -436,33 +436,33 @@ class Stats:
 
         message = list()
 
-        server = self.get_server(ctx, message)
-        if server is None:
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, False)
+            if user is None:
+                await self.send(message)
+                return
+
+            if not user.checkPermissions(ctx):
+                self.say(message, "You don't have permission to do that")
+                await self.send(message)
+                return
+
+            stat = session.query(db.schema.RollStat).filter(
+                db.schema.RollStat.server_id == user.active_server_id,
+                db.schema.RollStat.name == stat_name.lower()
+            ).first()
+
+            if stat is None:
+                self.say(message,
+                        "{} does not exist, so does not need to be deleted"
+                        .format(stat_name.lower()))
+                await self.send(message)
+                return
+
+            session.delete(stat)
+            session.commit()
+
+            self.say(message, "Deleted the default stat {}".format(
+                stat_name.lower()))
+
             await self.send(message)
-            return
-        session = server.createSession()
-        user = self.get_user(ctx, session)
-
-        if not user.checkPermissions(ctx):
-            self.say(message, "You don't have permission to do that")
-            await self.send(message)
-            return
-
-        stat = session.query(db.server.RollStat).filter(
-            db.server.RollStat.name == stat_name.lower()
-        ).first()
-
-        if stat is None:
-            self.say(message,
-                     "{} does not exist, so does not need to be deleted"
-                     .format(stat_name.lower()))
-            await self.send(message)
-            return
-
-        session.delete(stat)
-        session.commit()
-
-        self.say(message, "Deleted the default stat {}".format(
-            stat_name.lower()))
-
-        await self.send(message)
