@@ -38,7 +38,7 @@ class Stats(collections.MutableMapping):
     def __delitem__(self, key):
         stat = self[key]
         self._stats.remove(stat)
-        self._user.all_stats.remove(stat)
+        self._user.stats_list.remove(stat)
 
     def __str__(self):
         return "{" + ",".join(
