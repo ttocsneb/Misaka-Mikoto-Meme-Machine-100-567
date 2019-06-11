@@ -165,8 +165,8 @@ class Stats:
 
             default = "?"
 
-            for name, stat in stats.items():
-                max_name_width.append(len(name))
+            for stat in stats.values():
+                max_name_width.append(len(stat.name) + (2 if stat.group else 0))
                 if stat.calc is not None:
                     val = int(stat.calc) if int(stat.calc) == stat.calc \
                         else stat.calc
@@ -177,18 +177,91 @@ class Stats:
             max_name_width = max(max_name_width)
             max_val_width = max(max_val_width)
 
-            for name, stat in stats.items():
+            for group in stats.iter_groups():
+                if group:
+                    self.say(message, '#{}:'.format(group))
+
+                for name, stat in stats.get_group(group).items():
+                    if stat.calc is not None:
+                        val = int(stat.calc) if int(stat.calc) == stat.calc \
+                            else stat.calc
+                    else:
+                        val = default
+
+                    if str(val) != stat.value:
+                        self.say(
+                            message,
+                            "{0:>{wid_n}}  {1:<{wid_v}} = {2}".format(
+                                name, val, stat.value, wid_n=max_name_width,
+                                wid_v=max_val_width
+                            )
+                        )
+                    else:
+                        self.say(message, "{0:>{wid_n}}  {1}".format(
+                            name, val, wid_n=max_name_width
+                        ))
+
+            self.say(message, "```")
+
+            await self.send(message)
+
+    @stats.command(pass_context=True, usage="<group>", name='get')
+    async def st_get(self, ctx: commands.Context, grp: str):
+        """
+        Get a stat group
+
+        Prints all the stats that are in a group
+        """
+        message = list()
+
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, True)
+            if user is None:
+                await self.send(message)
+                return
+
+            try:
+                group = user.stats.get_group(grp)
+            except KeyError:
+                self.say(message, "You do not have the stat group `{}`".format(
+                    grp))
+                await self.send(message)
+                return
+
+            self.say(message, "```python")
+            self.say(message, '#{}:'.format(group.name))
+
+            max_name_width = list()
+            max_val_width = list()
+
+            default = "?"
+
+            for stat in group.values():
+                max_name_width.append(len(stat.name) + 2)
+                if stat.calc is not None:
+                    val = int(stat.calc) if int(stat.calc) == stat.calc \
+                        else stat.calc
+                    max_val_width.append(len(str(val)))
+                else:
+                    max_val_width.append(len(default))
+
+            max_name_width = max(max_name_width)
+            max_val_width = max(max_val_width)
+
+            for name, stat in group.items():
                 if stat.calc is not None:
                     val = int(stat.calc) if int(stat.calc) == stat.calc \
                         else stat.calc
                 else:
                     val = default
-
                 if str(val) != stat.value:
-                    self.say(message, "{0:>{wid_n}}  {1:<{wid_v}} = {2}".format(
-                        name, val, stat.value, wid_n=max_name_width,
-                        wid_v=max_val_width
-                    ))
+                    self.say(
+                        message,
+                        "{0:>{wid_n}}  {1:<{wid_v}} = {2}".format(
+                            name, val, stat.value, wid_n=max_name_width,
+                            wid_v=max_val_width
+                        )
+                    )
                 else:
                     self.say(message, "{0:>{wid_n}}  {1}".format(
                         name, val, wid_n=max_name_width
@@ -230,7 +303,7 @@ class Stats:
                 return
             session.commit()
 
-            self.say(message, "Set **{}** stat to".format(stat.name))
+            self.say(message, "Set **{}** stat to".format(str(stat)))
             self.say(message, "```python")
             if stat.calc is not None:
                 calc = int(stat.calc) if int(stat.calc) == stat.calc else stat.calc

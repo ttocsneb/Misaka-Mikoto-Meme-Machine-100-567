@@ -272,7 +272,7 @@ class Calculator:
         loop = 0
         stats = dict()
         for stat in user.stats.values():
-            stats[stat.name] = stat.getValue()
+            stats[str(stat)] = stat.getValue()
 
         while len(re.findall(self._check_vars_regex, equation)) > 0:
             loop += 1

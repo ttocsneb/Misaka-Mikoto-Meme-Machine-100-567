@@ -1,49 +1,132 @@
-
+import re
 import collections
 
 
 class Stats(collections.MutableMapping):
 
+    class Group(collections.MutableMapping):
+
+        def __init__(self, user, group, group_name):
+            self._user = user
+            self._group = group
+            self._group_name = group_name
+
+        def __getitem__(self, key):
+            return self._group[Stats.remove_specials(key)]
+
+        def __setitem__(self, key, value):
+            try:
+                item = self[key]
+                item.value = value
+            except KeyError:
+                from .schema import Stat
+                stat = Stat()
+                stat.name = Stats.remove_specials(key)
+                stat.group = self._group_name
+                stat.value = value
+                stat.user_id = self._user.id
+                stat.server_id = self._user.active_server_id
+                self._group[stat.name] = stat
+                self._user.stats_list.append(stat)
+
+        def __len__(self):
+            return len(self._group)
+
+        def __iter__(self):
+            return iter(self._group)
+
+        def __delitem__(self, key):
+            stat = self[key]
+            self._user.stats_list.remove(stat)
+            del self._group[Stats.remove_specials(key)]
+
+        name = property(lambda self: self._group_name)
+
+    group_regex = re.compile(r'(.+)\.(.+)')
+
     def __init__(self, user, stats):
         self._user = user
-        self._stats = stats
+        self._stats = dict((str(x), x) for x in stats)
+        self._groups = set(x.group for x in stats)
+
+    @classmethod
+    def remove_specials(cls, name):
+        return ''.join(t for t in name.lower() if t.isalnum())
+
+    @classmethod
+    def parse_name(cls, name):
+        try:
+            group, name = re.findall(cls.group_regex, name)[0]
+            group = cls.remove_specials(group)
+            name = cls.remove_specials(name)
+            return group, name
+        except IndexError:
+            return None, cls.remove_specials(name)
+
+    @staticmethod
+    def get_name(group, name):
+        from .schema import Stat
+        return Stat.get_name(group, name)
 
     def __getitem__(self, key):
-        for stat in self._stats:
-            if stat.name == key:
-                return stat
-        raise KeyError
+        group, name = self.__class__.parse_name(key)
+        return self._stats[self.get_name(group, name)]
 
     def __setitem__(self, key, value):
         try:
             stat = self[key]
             stat.value = value
         except KeyError:
+            group, name = self.__class__.parse_name(key)
             from .schema import Stat
             stat = Stat()
-            stat.name = key
+            stat.name = name
+            stat.group = group
             stat.value = value
             stat.user_id = self._user.id
             stat.server_id = self._user.active_server_id
-            self._stats.append(stat)
+            self._stats[str(stat)] = stat
             self._user.stats_list.append(stat)
 
     def __len__(self):
         return len(self._stats)
 
     def __iter__(self):
-        for stat in self._stats:
-            yield stat.name
+        return iter(self._stats)
 
     def __delitem__(self, key):
         stat = self[key]
-        self._stats.remove(stat)
         self._user.stats_list.remove(stat)
+        group, name = self.__class__.parse_name(key)
+        del self._stats[self.get_name(group, name)]
+
+    def get_group(self, key):
+        if key:
+            group = self.__class__.remove_specials(key)
+        else:
+            group = key
+        if group not in self._groups:
+            raise KeyError
+        items = collections.OrderedDict(
+            sorted(
+                (x.name, x) for x in self._stats.values() if x.group == group
+            )
+        )
+        if items:
+            return Stats.Group(self._user, items, group)
+        else:
+            raise KeyError
+
+    def iter_groups(self):
+        return iter(sorted(
+            set(x.group for x in self._stats.values()),
+            key=lambda x: (x or chr(0), x)
+        ))
 
     def __str__(self):
         return "{" + ",".join(
-            ["{}: {}".format(i.name, i.value)
-             for i in self._stats
+            ["{}: {}".format(i, v)
+             for i, v in self._stats.items()
              ]) + "}"
 
 

@@ -21,6 +21,15 @@ class Stat(Base):
     calc = Column(Float, nullable=True)
     group = Column(String(16), nullable=True)
 
+    @staticmethod
+    def get_name(group, name):
+        if group:
+            return group + '.' + name
+        return name
+
+    def __str__(self):
+        return self.get_name(self.group, self.name)
+
     def getValue(self):
         if self.calc is not None:
             return self.calc
