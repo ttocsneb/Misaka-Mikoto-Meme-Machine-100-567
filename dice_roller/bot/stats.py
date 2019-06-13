@@ -38,9 +38,60 @@ class Stats:
         if user is None and message is not None:
             self.say(
                 message,
-                "You aren't registered with any server and can't register here!"
+                "You aren't registered with any server and can't " + 
+                "register here!"
             )
         return user
+
+    def print_group(self, message, group):
+
+        if group.name:
+            self.say(message, '#{}:'.format(group.name))
+
+        max_name_width = list()
+        max_val_width = list()
+
+        default = "?"
+
+        mod = 2 if group.name else 0
+
+        for stat in group.values():
+            max_name_width.append(len(stat.name) + mod)
+            if stat.calc is not None:
+                try:
+                    val = int(stat.calc) if int(stat.calc) == stat.calc \
+                        else stat.calc
+                except ValueError:
+                    val = stat.calc
+                max_val_width.append(len(str(val)))
+            else:
+                max_val_width.append(len(default))
+
+        max_name_width = max(max_name_width)
+        max_val_width = max(max_val_width)
+
+        for name, stat in group.items():
+            if stat.calc is not None:
+                try:
+                    val = int(stat.calc) if int(stat.calc) == stat.calc \
+                        else stat.calc
+                except ValueError:
+                    val = stat.calc
+            else:
+                val = default
+
+            if str(val) != stat.value:
+                self.say(
+                    message,
+                    "{0:>{wid_n}}  {1:<{wid_v}} = {2}".format(
+                        name, val, stat.value, wid_n=max_name_width,
+                        wid_v=max_val_width
+                    )
+                )
+            else:
+                self.say(message, "{0:>{wid_n}}  {1}".format(
+                    name, val, wid_n=max_name_width
+                ))
 
     @classmethod
     def update_stats_equations(cls, session, server, eq: db.schema.Equation):
@@ -70,8 +121,8 @@ class Stats:
                 except util.BadEquation as be:
                     errors = True
                     cls._logger.warning(
-                        "There was an error while calculating the stat value ({}): {}"
-                        .format(str(stat), str(be)))
+                        "There was an error while calculating the stat value" +
+                        " ({}): {}".format(str(stat), str(be)))
 
         return not errors
 
@@ -130,14 +181,12 @@ class Stats:
 
         Stats can be used with equations and rolls.
 
-        They are usefull because you can have a universal equation with special
-        parameter for each person using it.
+        In order to use a stat in an equation/roll put the equation name in {}
+        for a variable called foo, you would use {foo}
 
-        The most common use for stats in terms of rpgs is the level stat. Some
-        equations need to modified by the user's level, and it gets annoying to
-        enter your level each time you use the equation.  Stats allow you to
-        enter a variable once, and have it automatically applied every time you
-        use an equation
+        stats can be grouped by putting a period between the group and the name
+
+        the group is bar, and the name is foo: {bar.foo}
         """
 
         if ctx.invoked_subcommand is not None:
@@ -160,53 +209,15 @@ class Stats:
 
             self.say(message, "```python")
 
-            max_name_width = list()
-            max_val_width = list()
-
-            default = "?"
-
-            for stat in stats.values():
-                max_name_width.append(len(stat.name) + (2 if stat.group else 0))
-                if stat.calc is not None:
-                    val = int(stat.calc) if int(stat.calc) == stat.calc \
-                        else stat.calc
-                    max_val_width.append(len(str(val)))
-                else:
-                    max_val_width.append(len(default))
-
-            max_name_width = max(max_name_width)
-            max_val_width = max(max_val_width)
-
             for group in stats.iter_groups():
-                if group:
-                    self.say(message, '#{}:'.format(group))
-
-                for name, stat in stats.get_group(group).items():
-                    if stat.calc is not None:
-                        val = int(stat.calc) if int(stat.calc) == stat.calc \
-                            else stat.calc
-                    else:
-                        val = default
-
-                    if str(val) != stat.value:
-                        self.say(
-                            message,
-                            "{0:>{wid_n}}  {1:<{wid_v}} = {2}".format(
-                                name, val, stat.value, wid_n=max_name_width,
-                                wid_v=max_val_width
-                            )
-                        )
-                    else:
-                        self.say(message, "{0:>{wid_n}}  {1}".format(
-                            name, val, wid_n=max_name_width
-                        ))
+                self.print_group(message, stats.get_group(group))
 
             self.say(message, "```")
 
             await self.send(message)
 
-    @stats.command(pass_context=True, usage="<group>", name='get')
-    async def st_get(self, ctx: commands.Context, grp: str):
+    @stats.command(pass_context=True, usage="[group]", name='get')
+    async def st_get(self, ctx: commands.Context, group=None):
         """
         Get a stat group
 
@@ -220,52 +231,20 @@ class Stats:
                 await self.send(message)
                 return
 
+            group = db.data_models.Stats.remove_specials(group) if group \
+                else None
+
             try:
-                group = user.stats.get_group(grp)
+                stats = user.stats.get_group(group)
             except KeyError:
                 self.say(message, "You do not have the stat group `{}`".format(
-                    grp))
+                    group))
                 await self.send(message)
                 return
 
             self.say(message, "```python")
-            self.say(message, '#{}:'.format(group.name))
 
-            max_name_width = list()
-            max_val_width = list()
-
-            default = "?"
-
-            for stat in group.values():
-                max_name_width.append(len(stat.name) + 2)
-                if stat.calc is not None:
-                    val = int(stat.calc) if int(stat.calc) == stat.calc \
-                        else stat.calc
-                    max_val_width.append(len(str(val)))
-                else:
-                    max_val_width.append(len(default))
-
-            max_name_width = max(max_name_width)
-            max_val_width = max(max_val_width)
-
-            for name, stat in group.items():
-                if stat.calc is not None:
-                    val = int(stat.calc) if int(stat.calc) == stat.calc \
-                        else stat.calc
-                else:
-                    val = default
-                if str(val) != stat.value:
-                    self.say(
-                        message,
-                        "{0:>{wid_n}}  {1:<{wid_v}} = {2}".format(
-                            name, val, stat.value, wid_n=max_name_width,
-                            wid_v=max_val_width
-                        )
-                    )
-                else:
-                    self.say(message, "{0:>{wid_n}}  {1}".format(
-                        name, val, wid_n=max_name_width
-                    ))
+            self.print_group(message, stats)
 
             self.say(message, "```")
 
@@ -306,7 +285,8 @@ class Stats:
             self.say(message, "Set **{}** stat to".format(str(stat)))
             self.say(message, "```python")
             if stat.calc is not None:
-                calc = int(stat.calc) if int(stat.calc) == stat.calc else stat.calc
+                calc = int(stat.calc) if int(stat.calc) == stat.calc \
+                    else stat.calc
                 if str(calc) == stat.value:
                     val = str(calc)
                 else:
@@ -339,22 +319,26 @@ class Stats:
                 del stats[stat.lower()]
                 session.commit()
 
-                self.say(message, "Deleted your **{}** stat".format(stat.lower()))
+                self.say(message, "Deleted your **{}** stat".format(
+                    stat.lower()))
             except KeyError:
                 self.say(message, "Could not find **{}**".format(stat.lower()))
 
             await self.send(message)
 
     @commands.group(pass_context=True,
-                    aliases=['rollstats', 'confstats', 'gs', 'rs', 'cs'])
-    async def getstats(self, ctx: commands.Context):
+                    aliases=['defstats', 'confstats', 'ds', 'cs'])
+    async def defaultstats(self, ctx: commands.Context):
         """
-        Get and configure default stats
+        default stats
 
-        By running this command, you will be given default stats.
+        set default stats that will be given to all users on the server
 
-        If you have permission to edit the server, or are a dm, you can change
-        what the default stats are.
+        it works the same as normal stats, however random values will be
+        rolled when they are applied
+
+        ie. when the stats are applied, the stat bar: 1d20 will be rolled,
+        and the result will be set to the user's stat bar.
         """
 
         if ctx.invoked_subcommand is not None:
@@ -370,31 +354,62 @@ class Stats:
 
             stats = session.query(db.schema.RollStat).filter(
                 db.schema.RollStat.server_id == user.active_server_id
-            ).order_by(
-                db.schema.RollStat.name
             ).all()
+
+            stats = db.data_models.Stats(user, stats)
 
             if not stats:
                 self.say(message, "There are no default stats yet.")
                 await self.send(message)
                 return
 
+            self.say(message, "Default Stats")
             self.say(message, "```python")
 
-            max_name_width = max([len(stat.name) for stat in stats])
-
-            for stat in stats:
-                self.say(message, "{0: >{width}}  {1}".format(
-                    stat.name, stat.value,
-                    width=max_name_width
-                ))
+            for group in stats.iter_groups():
+                self.print_group(message, stats.get_group(group))
 
             self.say(message, "```")
 
             await self.send(message)
 
-    @getstats.command(pass_context=True, name="apply", aliases=['roll'])
-    async def gs_apply(self, ctx: commands.Context):
+    @defaultstats.command(pass_context=True, name="get", usage="[group]")
+    async def ds_get(self, ctx: commands.Context, group=None):
+        """
+        List a group of default stats
+        """
+
+        message = list()
+
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, True)
+            if user is None:
+                await self.send(message)
+                return
+
+            group = db.data_models.Stats.remove_specials(group) if group \
+                else None
+
+            stats = session.query(db.schema.RollStat).filter(
+                db.schema.RollStat.server_id == user.active_server_id,
+                db.schema.RollStat.group == group
+            ).all()
+
+            try:
+                stats = db.data_models.Stats(user, stats).get_group(group)
+            except KeyError:
+                self.say(message, "there is no group `{}`".format(group))
+                await self.send(message)
+                return
+
+            self.say(message, "```python")
+            self.print_group(message, stats)
+            self.say(message, "```")
+
+            await self.send(message)
+
+    @defaultstats.command(pass_context=True, name="apply", aliases=['roll'])
+    async def ds_apply(self, ctx: commands.Context):
         """
         Apply the default stats to your stats
 
@@ -419,13 +434,14 @@ class Stats:
 
             # Set all the stats first
             for default in defaults:
-                stats[default.name] = default.value
+                stats[stats.get_name(
+                    default.group, default.name)] = default.value
 
             errors = list()
 
             # calculate the stats
             for default in defaults:
-                stat = stats[default.name]
+                stat = stats[stats.get_name(default.group, default.name)]
                 try:
                     if util.dice.low:
                         await util.dice.load_random_buffer()
@@ -442,8 +458,9 @@ class Stats:
                             else stat.calc
                         self.say(message, "{}: **{}**".format(stat.name, calc))
                 except util.BadEquation as be:
-                    self.say(errors, "There was an error while setting {}:".format(
-                        stat.name))
+                    self.say(
+                        errors, "There was an error while setting {}:".format(
+                            stat.name))
                     self.say(errors, str(be))
 
             session.commit()
@@ -457,9 +474,9 @@ class Stats:
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
 
-    @getstats.command(pass_context=True, usage="<stat> <value>", name="set",
-                      aliases=['add', 'edit'])
-    async def gs_set(self, ctx: commands.Context, stat_name: str, *,
+    @defaultstats.command(pass_context=True, usage="<stat> <value>",
+                          name="set", aliases=['add', 'edit'])
+    async def ds_set(self, ctx: commands.Context, stat_name: str, *,
                      value: str):
         """
         Set a default stat value
@@ -478,14 +495,18 @@ class Stats:
                 await self.send(message)
                 return
 
+            group, name = db.data_models.Stats.parse_name(stat_name)
+
             stat = session.query(db.schema.RollStat).filter(
                 db.schema.RollStat.server_id == user.active_server_id,
-                db.schema.RollStat.name == stat_name.lower()
+                db.schema.RollStat.name == name,
+                db.schema.RollStat.group == group
             ).first()
 
             if stat is None:
                 stat = db.schema.RollStat(server_id=user.active_server_id)
-                stat.name = stat_name.lower()
+                stat.name = name
+                stat.group = group
                 session.add(stat)
 
             stat.value = value.lower()
@@ -493,16 +514,16 @@ class Stats:
             session.commit()
 
             self.say(message, "Changed the default stat for {} to".format(
-                stat.name))
+                db.data_models.Stats.get_name(group, name)))
             self.say(message, "```python")
             self.say(message, stat.value)
             self.say(message, "```")
 
             await self.send(message)
 
-    @getstats.command(pass_context=True, usage="<stat>", name="del",
-                      aliases=['rm'])
-    async def gs_del(self, ctx: commands.Context, stat_name: str):
+    @defaultstats.command(pass_context=True, usage="<stat>", name="del",
+                          aliases=['rm'])
+    async def ds_del(self, ctx: commands.Context, stat_name: str):
         """
         Delete a default stat
         """
@@ -520,15 +541,18 @@ class Stats:
                 await self.send(message)
                 return
 
+            group, name = db.data_models.Stats.parse_name(stat_name)
+
             stat = session.query(db.schema.RollStat).filter(
                 db.schema.RollStat.server_id == user.active_server_id,
-                db.schema.RollStat.name == stat_name.lower()
+                db.schema.RollStat.name == name,
+                db.schema.RollStat.group == group
             ).first()
 
             if stat is None:
                 self.say(message,
-                        "{} does not exist, so does not need to be deleted"
-                        .format(stat_name.lower()))
+                         "{} does not exist, so does not need to be deleted"
+                         .format(db.data_models.Stats.get_name(group, name)))
                 await self.send(message)
                 return
 
@@ -536,6 +560,6 @@ class Stats:
             session.commit()
 
             self.say(message, "Deleted the default stat {}".format(
-                stat_name.lower()))
+                db.data_models.Stats.get_name(group, name)))
 
             await self.send(message)

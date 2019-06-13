@@ -60,6 +60,9 @@ class RollStat(Base):
             return "{}.{}".format(self.group, self.name)
         return self.name
 
+    # This is a dummy property used for printing the stats
+    calc = property(lambda self: self.value)
+
     def __repr__(self):
         return "<RollStat(name='{}', value='{}')>".format(
             self.fullname, self.value)
