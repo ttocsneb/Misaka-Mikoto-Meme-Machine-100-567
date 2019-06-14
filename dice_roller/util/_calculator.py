@@ -64,9 +64,9 @@ class Calculator:
         '+': 2, '-': 2,
         '*': 3, '/': 3,
         '^': 4, '%': 4,
-        'd': 5,
         'round': 6, 'max': 6, 'min': 6, 'floor': 6, 'ceil': 6,
-        'adv': 6, 'dis': 6, 'top': 6, 'bot': 6, 'if': 6
+        'adv': 6, 'dis': 6, 'top': 6, 'bot': 6, 'if': 6,
+        'd': 7,
     })
 
     # A function by default has 2 arguments, if it does not, list the number

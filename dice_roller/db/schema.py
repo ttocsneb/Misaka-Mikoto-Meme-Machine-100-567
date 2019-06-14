@@ -163,7 +163,10 @@ class Equation(Base):
     params = Column(Integer, default=0)
 
     def printName(self):
-        name = str(self.name) + ":" + str(self.id)
+        if self.id:
+            name = str(self.name) + ":" + str(self.id)
+        else:
+            name = str(self.name)
         if self.params > 0:
             name += "(" + ", ".join(
                 ["{" + str(i) + "}" for i in range(self.params)]
@@ -214,8 +217,8 @@ class User(Base):
         # current active server
         session = Session.object_session(self)
         return session.query(Equation).filter(
-            Equation.creator_id==self.id,
-            Equation.server_id==self.active_server_id
+            Equation.creator_id == self.id,
+            Equation.server_id == self.active_server_id
         ).order_by(Equation.name).all()
 
     def checkPermissions(self, ctx, obj_w_creator=None):

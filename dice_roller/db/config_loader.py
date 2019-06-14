@@ -98,6 +98,18 @@ class EquationSchema(Schema):
 
     @post_load
     def createEquation(self, item):
+        from ..util import variables
+
+        def isInt(t):
+            try:
+                int(t)
+            except ValueError:
+                return False
+            return True
+
+        item['params'] = len(
+            [i for i in variables.getVariables(item['value']) if isInt(i)]
+        )
         return schema.Equation(**item)
 
 

@@ -457,7 +457,8 @@ class Stats:
                         self.say(message, Dice.print_dice(dice))
                         calc = int(stat.calc) if int(stat.calc) is stat.calc \
                             else stat.calc
-                        self.say(message, "{}: **{}**".format(stat.name, calc))
+                        self.say(message, "{}: **{}**".format(
+                            stat.fullname,calc))
                 except util.BadEquation as be:
                     self.say(
                         errors, "There was an error while setting {}:".format(
