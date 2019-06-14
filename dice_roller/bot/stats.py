@@ -43,10 +43,11 @@ class Stats:
             )
         return user
 
-    def print_group(self, message, group):
+    @classmethod
+    def print_group(cls, message, group):
 
         if group.name:
-            self.say(message, '#{}:'.format(group.name))
+            cls.say(message, '#{}:'.format(group.name))
 
         max_name_width = list()
         max_val_width = list()
@@ -81,7 +82,7 @@ class Stats:
                 val = default
 
             if str(val) != stat.value:
-                self.say(
+                cls.say(
                     message,
                     "{0:>{wid_n}}  {1:<{wid_v}} = {2}".format(
                         name, val, stat.value, wid_n=max_name_width,
@@ -89,7 +90,7 @@ class Stats:
                     )
                 )
             else:
-                self.say(message, "{0:>{wid_n}}  {1}".format(
+                cls.say(message, "{0:>{wid_n}}  {1}".format(
                     name, val, wid_n=max_name_width
                 ))
 
