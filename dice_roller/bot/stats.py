@@ -327,6 +327,73 @@ class Stats:
 
             await self.send(message)
 
+    @stats.group(pass_context=True, name="clear")
+    async def st_clear(self, ctx: commands.Context):
+        """
+        Clear all your stats
+
+        You can clear everyone's stats by running the command `stats clear all`
+        """
+
+        if ctx.invoked_subcommand is not self.st_clear:
+            return
+
+        message = list()
+
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, False)
+            if user is None:
+                await self.send(message)
+                return
+
+            stats = user.stats
+
+            if not stats:
+                self.say(message, "You don't have any stats to clear")
+            else:
+                user.stats.clear()
+                session.commit()
+                self.say(message, "Deleted all of your stats")
+
+            await self.send(message)
+
+    @st_clear.command(pass_context=True, name="all")
+    async def st_clr_all(self, ctx: commands.Context):
+        """
+        Clear everyone's stats
+
+        You have to be a moderator, or have permission to modify the server to
+        run this command
+        """
+
+        message = list()
+
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, False)
+            if user is None:
+                await self.send(message)
+                return
+
+            if not user.checkPermissions(ctx):
+                self.say(
+                    message,
+                    "You don't have permission to modify everybody's stats"
+                )
+                await self.send(message)
+                return
+
+            session.query(db.schema.Stat).filter_by(
+                server_id=user.active_server_id
+            ).delete()
+
+            session.commit()
+
+            self.say(message, "Successfully deleted all user's stats")
+
+            await self.send(message)
+
+    # Default Stats
+
     @commands.group(pass_context=True,
                     aliases=['defstats', 'confstats', 'ds', 'cs'])
     async def defaultstats(self, ctx: commands.Context):
@@ -458,7 +525,7 @@ class Stats:
                         calc = int(stat.calc) if int(stat.calc) is stat.calc \
                             else stat.calc
                         self.say(message, "{}: **{}**".format(
-                            stat.fullname,calc))
+                            stat.fullname, calc))
                 except util.BadEquation as be:
                     self.say(
                         errors, "There was an error while setting {}:".format(
@@ -564,4 +631,32 @@ class Stats:
             self.say(message, "Deleted the default stat {}".format(
                 db.data_models.Stats.get_name(group, name)))
 
+            await self.send(message)
+
+    @defaultstats.command(pass_context=True, name="clear")
+    async def ds_clear(self, ctx: commands.Context):
+        """
+        Clear the default stats
+        """
+
+        message = list()
+
+        with db.database.session() as session:
+            user = self.get_user(ctx, session, message, False)
+            if user is None:
+                await self.send(message)
+                return
+
+            if not user.checkPermissions(ctx):
+                self.say(message, "You don't have permission to do that")
+                await self.send(message)
+                return
+
+            session.query(db.schema.RollStat).filter_by(
+                server_id=user.active_server_id
+            ).delete()
+
+            session.commit()
+
+            self.say(message, "Successfully cleared all default stats")
             await self.send(message)
