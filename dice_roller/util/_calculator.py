@@ -64,9 +64,8 @@ class Calculator:
         '+': 2, '-': 2,
         '*': 3, '/': 3,
         '^': 4, '%': 4,
-        'round': 6, 'max': 6, 'min': 6, 'floor': 6, 'ceil': 6,
-        'adv': 6, 'dis': 6, 'top': 6, 'bot': 6, 'if': 6,
-        'd': 7,
+        'round': 6, 'max': 6, 'min': 6, 'floor': 6, 'ceil': 6, 'if': 6,
+        'adv': 7, 'dis': 7, 'top': 7, 'bot': 7, 'd': 7,
     })
 
     # A function by default has 2 arguments, if it does not, list the number
@@ -382,7 +381,7 @@ class Calculator:
                     if eq is None:
                         raise KeyError
                     repeats[eq_name] = eq
-                return 6
+                return 5    
 
             self.__class__.functions.setFunction(getEquationFunction)
             if _recursed is False:

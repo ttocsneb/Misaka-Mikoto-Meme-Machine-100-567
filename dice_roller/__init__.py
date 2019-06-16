@@ -55,8 +55,13 @@ def sigint_shutdown():
         signal.signal(signal.SIGINT, original_sigint_handler)
 
 
-def serve(test=False, sql_file=None):
+def serve(test=False, debug=False):
+    if debug:
+        logger.setLogLevel(logging.DEBUG)
+        _logger.debug("starting bot in debug mode")
+
     db.upgrade()
+
 
     _logger.info("Loading Token")
     if not test:

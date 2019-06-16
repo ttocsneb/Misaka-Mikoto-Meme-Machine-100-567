@@ -499,6 +499,28 @@ class Stats:
                 db.schema.RollStat.server_id == user.active_server_id
             ).order_by(db.schema.RollStat.group, db.schema.RollStat.name).all()
 
+            randoms = \
+                [k for k, v in util.calculator.precedence.items() if v >= 7]
+
+            def is_random(eq):
+                """
+                Check if an equation is random
+
+                It does this by checking if a primitive random function is in
+                the equation
+                """
+                values = util.calculator._get_elements(eq.lower())
+                try:
+                    val = next(v for v in values if v in randoms)
+                    return True
+                except StopIteration:
+                    pass
+                return False
+
+            # Separate the list of default stats into randoms and non-randoms
+            random_stats = [d for d in defaults if is_random(d.value)]
+            normal_stats = [d for d in defaults if d not in random_stats]
+
             # Set all the stats first
             for default in defaults:
                 stats[stats.get_name(
@@ -507,30 +529,44 @@ class Stats:
             errors = list()
 
             # calculate the stats
-            for default in defaults:
-                stat = stats[stats.get_name(default.group, default.name)]
-                try:
-                    # Load more random numbers when low on rolled dice
-                    if util.dice.low:
-                        await util.dice.load_random_buffer()
+            async def calc_stat(default_stats):
+                """
+                Calculate a list of RollStats for the user
+                """
+                for default in default_stats:
+                    stat = stats[stats.get_name(default.group, default.name)]
+                    try:
+                        # Load more random numbers when low on rolled dice
+                        if util.dice.low:
+                            await util.dice.load_random_buffer()
 
-                    dice = self.calc_stat_value(session, user, stat,
-                                                parse_randoms=True)
+                        dice = self.calc_stat_value(
+                            session, user, stat,
+                            parse_randoms=True
+                        )
 
-                    if len(dice) != 0:
-                        stat.value = stat.calc
+                        if dice:
+                            stat.value = stat.calc
 
-                        from .dice import Dice
-                        self.say(message, Dice.print_dice(dice))
-                        calc = int(stat.calc) if int(stat.calc) is stat.calc \
-                            else stat.calc
-                        self.say(message, "{}: **{}**".format(
-                            stat.fullname, calc))
-                except util.BadEquation as be:
-                    self.say(
-                        errors, "There was an error while setting {}:".format(
-                            stat.name))
-                    self.say(errors, str(be))
+                            from .dice import Dice
+                            self.say(message, Dice.print_dice(dice))
+                            calc = \
+                                int(stat.calc) if int(stat.calc) is stat.calc \
+                                else stat.calc
+                            self.say(message, "`{}`: **{}**".format(
+                                stat.fullname, calc))
+                    except util.BadEquation as be:
+                        self.say(
+                            errors, 
+                            "There was an error while setting {}:".format(
+                                stat.name)
+                        )
+                        self.say(errors, str(be))
+
+            # Calculate random stats first
+            await calc_stat(random_stats)
+            # Calculate all other stats next
+            await calc_stat(normal_stats)
 
             session.commit()
 
