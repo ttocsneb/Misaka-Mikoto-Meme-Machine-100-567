@@ -202,7 +202,7 @@ class Config:
             await self.send(message + eq_message)
 
     @config.command(pass_context=True, usage="<name|url|json>", name='apply')
-    async def c_apply(self, ctx: commands.Context, name: str):
+    async def c_apply(self, ctx: commands.Context, *, name: str):
         """
         Apply a configuration to the server.
 

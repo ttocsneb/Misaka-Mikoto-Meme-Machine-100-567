@@ -17,7 +17,7 @@ class Config:
         self.db_file = data.get('db_file', 'sqlite:///db.sqlite')
         self.stat_config = data.get(
             'stat_config',
-            'https://gist.github.com/ttocsneb/b253ebd2028067f3ada8a27c2e71ead7/raw/00c573584cab21dbc867b60642c73e14910dc0e8/main.json')
+            'https://raw.githubusercontent.com/ttocsneb/ddb_config/master/ddbconf.json')
         self.description = data.get(
             'description',
             "I am a professional dice roller.  I use Random.org to roll my dice.\n"
