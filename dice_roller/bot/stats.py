@@ -142,7 +142,8 @@ class Stats:
 
         # 1. check if there are dice rolls
         util.dice.logging_enabled = True
-        eq = util.calculator.parse_args(stat.value, session, user)
+        eq = util.calculator.parse_args(stat.value, session, user,
+                                        use_calculated=False)
         # 2. calculate equation
         value = util.calculator.parse_equation(eq, session, user)
         util.dice.logging_enabled = False
@@ -157,12 +158,10 @@ class Stats:
 
         errors = False
 
-        from string import Formatter
-        name = stat.name.lower()
+        name = stat.fullname
         for st in user.stats.values():
-            params = [fn for _, fn, _, _
-                      in Formatter().parse(str(st.value).lower())
-                      if fn is not None]
+            params = [fn for fn
+                      in util.variables.getVariables(str(st.value).lower())]
             if name in params:
                 try:
                     cls.calc_stat_value(session, user, st)
@@ -498,7 +497,7 @@ class Stats:
             stats = user.stats
             defaults = session.query(db.schema.RollStat).filter(
                 db.schema.RollStat.server_id == user.active_server_id
-            ).all()
+            ).order_by(db.schema.RollStat.group, db.schema.RollStat.name).all()
 
             # Set all the stats first
             for default in defaults:
@@ -511,6 +510,7 @@ class Stats:
             for default in defaults:
                 stat = stats[stats.get_name(default.group, default.name)]
                 try:
+                    # Load more random numbers when low on rolled dice
                     if util.dice.low:
                         await util.dice.load_random_buffer()
 

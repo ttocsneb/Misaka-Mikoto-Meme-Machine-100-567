@@ -262,7 +262,8 @@ class Calculator:
 
         return stack.pop()
 
-    def parse_args(self, equation, session, user, args=None):
+    def parse_args(self, equation, session, user, args=None,
+                   use_calculated=True):
         """
         Set all the arguments in the equation
         """
@@ -271,8 +272,12 @@ class Calculator:
 
         loop = 0
         stats = dict()
+        # Load the user's stats
         for stat in user.stats.values():
-            stats[str(stat)] = stat.getValue()
+            if use_calculated:
+                stats[str(stat)] = stat.getValue()
+            else:
+                stats[str(stat)] = stat.value
 
         while len(re.findall(self._check_vars_regex, equation)) > 0:
             loop += 1
