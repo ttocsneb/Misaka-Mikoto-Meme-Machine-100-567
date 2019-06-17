@@ -126,11 +126,9 @@ class Config:
         either a url to the config, or paste in the config directly.
         """
 
-    @config.command(aliases=['ls'], name='list')
-    async def c_list(self):
-        """
-        List all configurations provided
-        """
+        if ctx.invoked_subcommand is not None:
+            return
+
         message = list()
 
         desc = self.get_loader(message)
