@@ -49,7 +49,8 @@ class Config:
     def get_loader(message=None):
         desc_loader = config_loader.ConfigDescLookupLoader()
         try:
-            text = util.read_uri(config.config.stat_config)
+            # allow files because the uri is set on the host machine
+            text = util.read_uri(config.config.stat_config, allow_file=True)
             return desc_loader.load_json(text).data
         except:
             import traceback
@@ -66,7 +67,8 @@ class Config:
 
         conf_loader = config_loader.ConfigLoader()
         try:
-            text = util.read_uri(loader[name.lower()].uri)
+            # allow files because the uri is set on the host machine
+            text = util.read_uri(loader[name.lower()].uri, allow_file=True)
             return conf_loader.load_json(text).data
         except:
             import traceback
