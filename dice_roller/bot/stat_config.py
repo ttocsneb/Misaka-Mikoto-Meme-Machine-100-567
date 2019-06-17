@@ -45,18 +45,17 @@ class Config:
             )
         return user
 
-    @staticmethod
-    def get_loader(message=None):
+    @classmethod
+    def get_loader(cls, message=None):
         desc_loader = config_loader.ConfigDescLookupLoader()
         try:
             # allow files because the uri is set on the host machine
             text = util.read_uri(config.config.stat_config, allow_file=True)
             return desc_loader.load_json(text).data
-        except:
-            import traceback
-            traceback.print_exc()
+        except Exception as e:
+            cls._logger.debug(e)
             if message is not None:
-                message.append("I can't find the list")
+                cls.say(message, "I can't find the list")
 
     @classmethod
     def get_config(cls, name, message=None, loader=None):
@@ -70,9 +69,8 @@ class Config:
             # allow files because the uri is set on the host machine
             text = util.read_uri(loader[name.lower()].uri, allow_file=True)
             return conf_loader.load_json(text).data
-        except:
-            import traceback
-            traceback.print_exc()
+        except Exception as e:
+            cls._logger.debug(e)
             if message is not None:
                 cls.say(message, "I can't find the config `{}`".format(name))
 
@@ -97,8 +95,8 @@ class Config:
             return conf_loader.load_json(text).data, 'url'
         except urllib.error.URLError:
             pass
-        except:
-            traceback.print_exc()
+        except Exception as e:
+            cls._logger.debug(e)
             if message is not None:
                 cls.say(message, "I can't read that url")
             return None, 'url'
@@ -107,8 +105,8 @@ class Config:
 
         try:
             return conf_loader.load_json(name).data, 'json'
-        except:
-            traceback.print_exc()
+        except Exception as e:
+            cls._logger.debug(e)
             if message is not None:
                 cls.say(message, "I can't understand your json")
             return None, 'json'

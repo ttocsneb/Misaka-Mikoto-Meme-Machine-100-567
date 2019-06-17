@@ -114,8 +114,7 @@ class Stats(collections.MutableMapping):
         )
         if items:
             return Stats.Group(self._user, items, group)
-        else:
-            raise KeyError
+        raise KeyError
 
     def iter_groups(self):
         return iter(sorted(
