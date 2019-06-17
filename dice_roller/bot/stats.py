@@ -202,7 +202,7 @@ class Stats:
 
             stats = user.stats
 
-            if len(stats) == 0:
+            if not stats:
                 self.say(message, "You don't have any stats yet")
                 await self.send(message)
                 return
