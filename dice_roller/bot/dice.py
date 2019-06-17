@@ -132,7 +132,7 @@ class Dice:
                 return
 
             dice = util.dice.rolled_dice
-            if len(dice) > 0:
+            if dice:
                 self.say(message, self.print_dice(dice))
                 self.say(message, self.print_dice_one_liner(
                     dice + [(value, None)]))
@@ -238,18 +238,18 @@ class Dice:
             return
 
         util.dice.logging_enabled = True
-        sum = util.dice.roll_top(sides, top_dice, times)
+        total = util.dice.roll_top(sides, top_dice, times)
         util.dice.logging_enabled = False
 
         dice = util.dice.rolled_dice
         if len(dice) > 1:
             self.say(message, self.print_dice(dice))
 
-        one_liner = self.print_dice_one_liner(dice + [(sum, sides * top_dice)])
+        one_liner = self.print_dice_one_liner(dice + [(total, sides * top_dice)])
         if one_liner is not None:
             self.say(message, one_liner)
 
-        self.say(message, "You got **{}**".format(sum))
+        self.say(message, "You got **{}**".format(total))
         await self.send(message)
 
         if util.dice.low:
@@ -273,18 +273,19 @@ class Dice:
             return
 
         util.dice.logging_enabled = True
-        sum = util.dice.roll_top(sides, top_dice, times, False)
+        total = util.dice.roll_top(sides, top_dice, times, False)
         util.dice.logging_enabled = False
 
         dice = util.dice.rolled_dice
         if len(dice) > 1:
             self.say(message, self.print_dice(dice))
 
-        one_liner = self.print_dice_one_liner(dice + [(sum, sides * top_dice)])
+        one_liner = self.print_dice_one_liner(
+            dice + [(total, sides * top_dice)])
         if one_liner is not None:
             self.say(message, one_liner)
 
-        self.say(message, "You got **{}**".format(sum))
+        self.say(message, "You got **{}**".format(total))
         await self.send(message)
 
         if util.dice.low:

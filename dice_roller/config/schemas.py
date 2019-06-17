@@ -15,6 +15,9 @@ class Config:
         self.random = data.get('random', Random(dict()))
         self.mods = data.get('mods', [])
         self.db_file = data.get('db_file', 'sqlite:///db.sqlite')
+        self.stat_config = data.get(
+            'stat_config',
+            'https://raw.githubusercontent.com/ttocsneb/ddb_config/master/ddbconf.json')
         self.description = data.get(
             'description',
             "I am a professional dice roller.  I use Random.org to roll my dice.\n"
@@ -213,6 +216,7 @@ class ConfigSchema(Schema):
     mods = fields.List(fields.String())
     db_file = fields.String()
     description = fields.String()
+    stat_config = fields.String()
 
     @post_load
     def loadConfig(self, data):

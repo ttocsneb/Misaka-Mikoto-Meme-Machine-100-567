@@ -21,6 +21,15 @@ class Stat(Base):
     calc = Column(Float, nullable=True)
     group = Column(String(16), nullable=True)
 
+    @staticmethod
+    def get_name(group, name):
+        if group:
+            return group + '.' + name
+        return name
+
+    def __str__(self):
+        return self.get_name(self.group, self.name)
+
     def getValue(self):
         if self.calc is not None:
             return self.calc
@@ -50,6 +59,9 @@ class RollStat(Base):
         if self.group is not None:
             return "{}.{}".format(self.group, self.name)
         return self.name
+
+    # This is a dummy property used for printing the stats
+    calc = property(lambda self: self.value)
 
     def __repr__(self):
         return "<RollStat(name='{}', value='{}')>".format(
@@ -151,7 +163,10 @@ class Equation(Base):
     params = Column(Integer, default=0)
 
     def printName(self):
-        name = str(self.name) + ":" + str(self.id)
+        if self.id:
+            name = str(self.name) + ":" + str(self.id)
+        else:
+            name = str(self.name)
         if self.params > 0:
             name += "(" + ", ".join(
                 ["{" + str(i) + "}" for i in range(self.params)]
@@ -202,8 +217,8 @@ class User(Base):
         # current active server
         session = Session.object_session(self)
         return session.query(Equation).filter(
-            Equation.creator_id==self.id,
-            Equation.server_id==self.active_server_id
+            Equation.creator_id == self.id,
+            Equation.server_id == self.active_server_id
         ).order_by(Equation.name).all()
 
     def checkPermissions(self, ctx, obj_w_creator=None):

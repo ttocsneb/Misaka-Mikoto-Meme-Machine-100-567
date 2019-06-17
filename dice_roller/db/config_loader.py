@@ -1,6 +1,9 @@
 from marshmallow import Schema, fields, post_load
 from . import schema
 
+import json
+import collections
+
 
 class DictField(fields.Nested):
     def __init__(self, nested: fields.FieldABC, key_name="name",
@@ -95,6 +98,18 @@ class EquationSchema(Schema):
 
     @post_load
     def createEquation(self, item):
+        from ..util import variables
+
+        def isInt(t):
+            try:
+                int(t)
+            except ValueError:
+                return False
+            return True
+
+        item['params'] = len(
+            [i for i in variables.getVariables(item['value']) if isInt(i)]
+        )
         return schema.Equation(**item)
 
 
@@ -111,3 +126,65 @@ class ConfigurationSchema(Schema):
     @post_load
     def CreateConfiguration(self, item):
         return Configuration(**item)
+
+
+class ConfigDesc:
+    def __init__(self, name: str, desc: str, uri: str):
+        self.name = name
+        self.desc = desc
+        self.uri = uri
+
+
+class ConfigDescSchema(Schema):
+    name = fields.String()
+    desc = fields.String()
+    uri = fields.String()
+
+    @post_load
+    def CreateConfigDesc(self, item):
+        return ConfigDesc(**item)
+
+
+class ConfigDescLookup(collections.Mapping):
+    def __init__(self, lookups: list):
+        self.lookups = lookups
+        self._dict = dict((i.name, i) for i in self.lookups)
+
+    def __getitem__(self, key):
+        return self._dict[key]
+
+    def __iter__(self):
+        return iter(self._dict)
+
+    def __len__(self):
+        return len(self._dict)
+
+
+class ConfigDescLookupSchema(Schema):
+    lookups = DictField(ConfigDescSchema, 'name', 'uri')
+
+    @post_load
+    def CreateConfigLookup(self, item):
+        return ConfigDescLookup(**item)
+
+
+class ConfigLoader:
+    def __init__(self, *args, **kwargs):
+        self._schema = ConfigurationSchema(strict=True, *args, **kwargs)
+
+    def load_json(self, text) -> Configuration:
+        obj = json.loads(text)
+        return self._schema.load(obj)
+
+    def dump_json(self, obj) -> str:
+        serialized = self._schema.dump(obj)
+        return json.dumps(serialized)
+
+
+class ConfigDescLookupLoader:
+    def __init__(self, *args, **kwargs):
+        self._schema = ConfigDescLookupSchema(strict=True, *args, **kwargs)
+
+    def load_json(self, text) -> ConfigDescLookup:
+        obj = json.loads(text)
+        return self._schema.load(obj)

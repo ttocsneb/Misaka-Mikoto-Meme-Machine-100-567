@@ -284,7 +284,7 @@ class Equations:
                     util.dice.logging_enabled = False
 
                     dice = util.dice.rolled_dice
-                    if len(dice) > 0:
+                    if dice:
                         from .dice import Dice
                         self.say(message, Dice.print_dice(dice))
                         self.say(message, Dice.print_dice_one_liner(
