@@ -8,7 +8,7 @@ with open('README.md', 'r') as fh:
 
 # All the pip dependencies required for installation.
 INSTALL_REQUIRES = [
-      'discord.py',
+      'discord.py==0.16.12',
       'ruamel.yaml',
       'marshmallow',
       'SQLAlchemy',
@@ -18,11 +18,11 @@ INSTALL_REQUIRES = [
 
 def params():
 
-      name = "Discord Dice Roller Bot"
+      name = "Dice Roller"
 
-      version = "0.1"
+      version = "0.3"
 
-      description = "A discord bot that helps you play Dungeons & Dragons with Discord"
+      description = "A Discord Dice Rolling bot."
 
       long_description = LONG_DESCRIPTION
       long_description_content_type = "text/markdown"
@@ -31,7 +31,7 @@ def params():
 
       # https://pypi.org/pypi?%3Aaction=list_classifiers
       classifiers = [
-            "Development Status :: 2 - Pre-Alpha",
+            "Development Status :: 3 - Alpha",
             "Environment :: Console",
             "Intended Audience :: Other Audience",
             "Natural Language :: English",
