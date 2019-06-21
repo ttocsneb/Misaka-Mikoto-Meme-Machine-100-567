@@ -213,7 +213,7 @@ class ConfigSchema(Schema):
     prefix = fields.String()
     token = fields.String()
     random = fields.Nested(RandomSchema)
-    mods = fields.List(fields.String())
+    mods = fields.List(fields.Integer())
     db_file = fields.String()
     description = fields.String()
     stat_config = fields.String()

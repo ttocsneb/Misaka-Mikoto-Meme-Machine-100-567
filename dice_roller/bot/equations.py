@@ -8,7 +8,7 @@ from ..util import variables
 from .. import db
 
 
-class Equations:
+class Equations(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
@@ -19,10 +19,10 @@ class Equations:
         if string:
             messages.append(str(string))
 
-    async def say_message(self, messages):
+    async def send(self, ctx, messages):
         message = '\n'.join(messages)
         if message:
-            await self.bot.say(message)
+            await ctx.channel.send(message)
 
     def get_user(self, ctx: commands.Context, session, commit=True
                  ) -> db.schema.User:
@@ -53,7 +53,7 @@ class Equations:
 
     # Equations
 
-    @commands.group(pass_context=True, aliases=['eq'])
+    @commands.group(aliases=['eq'])
     async def equations(self, ctx: commands.Context):
         """
         Manage equations
@@ -71,7 +71,7 @@ class Equations:
             user = self.get_user(ctx, session)
 
             if user is None:
-                await self.bot.say("You don't have an active server!")
+                await self.send(ctx, ["You don't have an active server!"])
                 return
 
             your_eqs = user.equations
@@ -82,7 +82,7 @@ class Equations:
 
             if len(your_eqs) + len(other_eqs) == 0:
                 self.say(message, 'There are no equations yet.')
-                await self.say_message(message)
+                await self.send(ctx, message)
                 return
 
             self.say(message, 'here is a list of all the equations:')
@@ -91,9 +91,9 @@ class Equations:
             self.say(message, '\nOther Equations:\n' + '-' * 10)
             self.say(message, '\n'.join([eq.printName() for eq in other_eqs]))
             self.say(message, '```')
-            await self.say_message(message)
+            await self.send(ctx, message)
 
-    @equations.command(pass_context=True, usage='<eq name>')
+    @equations.command(usage='<eq name>')
     async def show(self, ctx: commands.Context, table_name: str):
         """
         Show the equation
@@ -104,7 +104,7 @@ class Equations:
             user = self.get_user(ctx, session)
 
             if user is None:
-                await self.bot.say("You don't have an active server!")
+                await self.send(ctx, ["You don't have an active server!"])
                 return
 
             equation = self.get_equation(user, message, session, table_name)
@@ -115,9 +115,9 @@ class Equations:
                 self.say(message, equation.value)
                 self.say(message, "```")
 
-            await self.say_message(message)
+            await self.send(ctx, message)
 
-    @equations.command(pass_context=True, usage='<eq name> <equation>')
+    @equations.command(usage='<eq name> <equation>')
     async def add(self, ctx: commands.Context, table_name: str, *,
                   equation: str):
         """
@@ -138,7 +138,7 @@ class Equations:
             user = self.get_user(ctx, session, commit=False)
 
             if user is None:
-                await self.bot.say("You don't have an active server!")
+                await self.send(ctx, ["You don't have an active server!"])
                 return
 
             new_eq = db.schema.Equation(server_id=user.active_server_id)
@@ -152,9 +152,9 @@ class Equations:
             session.commit()
 
             self.say(message, "Created Equation " + new_eq.printName())
-            await self.say_message(message)
+            await self.send(ctx, message)
 
-    @equations.command(pass_context=True, usage="<eq name> <description>")
+    @equations.command(usage="<eq name> <description>")
     async def desc(self, ctx: commands.Context, table_name: str, *,
                    description: str):
         """
@@ -167,7 +167,7 @@ class Equations:
             user = self.get_user(ctx, session, commit=False)
 
             if user is None:
-                await self.bot.say("You don't have an active server!")
+                await self.send(ctx, ["You don't have an active server!"])
                 return
 
             equation = self.get_equation(user, message, session, table_name)
@@ -181,9 +181,9 @@ class Equations:
                 else:
                     self.say(message, "You don't have permission to do that")
 
-            await self.say_message(message)
+            await self.send(ctx, message)
 
-    @equations.command(pass_context=True, usage="<eq name> <equation>")
+    @equations.command(usage="<eq name> <equation>")
     async def edit(self, ctx: commands.Context, eq_name: str, *, eq):
         """
         Change an equation's equation
@@ -195,7 +195,7 @@ class Equations:
             user = self.get_user(ctx, session, commit=False)
 
             if user is None:
-                await self.bot.say("You don't have an active server!")
+                await self.send(ctx, ["You don't have an active server!"])
                 return
 
             equation = self.get_equation(user, message, session, eq_name)
@@ -225,9 +225,9 @@ class Equations:
                 else:
                     self.say(message, "You don't have permission for that.")
 
-            await self.say_message(message)
+            await self.send(ctx, message)
 
-    @equations.command(pass_context=True, usage="<eq name>", name='del')
+    @equations.command(usage="<eq name>", name='del')
     async def _del(self, ctx: commands.Context, eq_name: str):
         """
         Deletes an equation
@@ -239,7 +239,7 @@ class Equations:
             user = self.get_user(ctx, session, commit=False)
 
             if user is None:
-                await self.bot.say("You don't have an active server!")
+                await self.send(ctx, ["You don't have an active server!"])
                 return
 
             equation = self.get_equation(user, message, session, eq_name)
@@ -253,9 +253,9 @@ class Equations:
                 else:
                     self.say(message, "Sorry, your not allowed to do that :/")
 
-            await self.say_message(message)
+            await self.send(ctx, message)
 
-    @equations.command(pass_context=True, usage="<eq name> [<param 0>,]",
+    @equations.command(usage="<eq name> [<param 0>,]",
                        aliases=['roll'])
     async def calc(self, ctx: commands.Context, eq_name: str, *args):
         """
@@ -270,7 +270,7 @@ class Equations:
             user = self.get_user(ctx, session)
 
             if user is None:
-                await self.bot.say("You don't have an active server!")
+                await self.send(ctx, ["You don't have an active server!"])
                 return
 
             equation = self.get_equation(user, message, session, eq_name)
@@ -294,7 +294,7 @@ class Equations:
                 except util.BadEquation as be:
                     self.say(message, be)
 
-            await self.say_message(message)
+            await self.send(ctx, message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())

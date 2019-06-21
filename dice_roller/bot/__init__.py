@@ -59,13 +59,13 @@ class Bot:
         async def on_ready():
             self._logger.info("I'm online!")
 
-            game_str = "with dice!"
-            self._logger.info("Setting my activity to %s", game_str)
-            game = discord.Game(name=game_str)
+            # game_str = "with dice!"
+            # self._logger.info("Setting my activity to %s", game_str)
+            # game = discord.Game(name=game_str)
 
-            await self.bot.change_presence(
-                status=discord.Status.online,
-                game=game)
+            # await self.bot.change_presence(
+            #     status=discord.Status.online,
+            #     game=game)
 
             self._logger.info("______________")
 

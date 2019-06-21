@@ -8,7 +8,7 @@ from ..db import config_loader
 from ..config import config
 
 
-class Config:
+class Config(commands.Cog):
 
     _logger = logging.getLogger(__name__)
 
@@ -20,10 +20,10 @@ class Config:
         if string:
             messages.append(str(string))
 
-    async def send(self, messages):
+    async def send(self, ctx, messages):
         message = '\n'.join(messages)
         if message:
-            await self.bot.say(message)
+            await ctx.channel.send(message)
 
     def get_server(self, ctx: commands.Context, session, message,
                    commit=True) -> db.schema.Server:
@@ -111,7 +111,7 @@ class Config:
                 cls.say(message, "I can't understand your json")
             return None, 'json'
 
-    @commands.group(pass_context=True, aliases=['conf', 'c'])
+    @commands.group(aliases=['conf', 'c'])
     async def config(self, ctx: commands.Context):
         """
         Configure the server stats
@@ -133,7 +133,7 @@ class Config:
 
         desc = self.get_loader(message)
         if not desc:
-            await self.send(message)
+            await self.send(ctx, message)
             return
 
         self.say(message, "```markdown")
@@ -141,9 +141,9 @@ class Config:
             self.say(message, "#{}\n- {}".format(name, item.desc))
         self.say(message, "```")
 
-        await self.send(message)
+        await self.send(ctx, message)
 
-    @config.command(pass_context=True, usage="<name|url|json>",
+    @config.command(usage="<name|url|json>",
                     aliases=['get'], name='info')
     async def c_info(self, ctx: commands.Context, *, name: str):
         """
@@ -157,7 +157,7 @@ class Config:
 
         config, method = self.load_config(name, message)
         if not config:
-            await self.send(message)
+            await self.send(ctx, message)
             return
 
         if method == 'name':
@@ -194,12 +194,12 @@ class Config:
         self.say(eq_message, "```")
 
         if len('\n'.join(message + eq_message)) > 2000:
-            await self.send(message)
-            await self.send(eq_message)
+            await self.send(ctx, message)
+            await self.send(ctx, eq_message)
         else:
-            await self.send(message + eq_message)
+            await self.send(ctx, message + eq_message)
 
-    @config.command(pass_context=True, usage="<name|url|json>", name='apply')
+    @config.command(usage="<name|url|json>", name='apply')
     async def c_apply(self, ctx: commands.Context, *, name: str):
         """
         Apply a configuration to the server.
@@ -212,7 +212,7 @@ class Config:
         message = list()
         config, method = self.load_config(name, message)
         if config is None:
-            await self.send(message)
+            await self.send(ctx, message)
             return
 
         if method == 'name':
@@ -228,7 +228,7 @@ class Config:
             if not user.checkPermissions(ctx):
                 self.say(message,
                          "You don't have permission to apply configurations")
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             # Apply the equations to the server
@@ -283,4 +283,4 @@ class Config:
             self.say(message, "Successfully applied {} to the server".format(
                 print_name))
 
-            await self.send(message)
+            await self.send(ctx, message)

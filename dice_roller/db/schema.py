@@ -235,7 +235,7 @@ class User(Base):
 
         # Check if the user is the creator of the obj
         if obj_w_creator is not None:
-            if ctx.message.author.id == str(obj_w_creator.creator_id):
+            if ctx.message.author.id == obj_w_creator.creator_id:
                 return True
 
         # Check if the user is a bot moderator
@@ -271,7 +271,7 @@ class User(Base):
                                         discord.ChannelType.group]:
             # Get the active server object
             server = next((server for server in ctx.bot.servers
-                           if server.id == str(self.active_server_id)
+                           if server.id == self.active_server_id
                            ), None)
 
             # Return the user object from the active server if it exists

@@ -11,30 +11,30 @@ from ..config import config
 from .. import db
 
 
-class Misc:
+class Misc(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
         self._logger = logging.getLogger(__name__)
 
-    @commands.command(pass_context=True, hidden=True)
+    @commands.command(hidden=True)
     async def headpat(self, ctx):
         '''Usage: don't.'''
         if ctx.message.author.id in config.config.mods:
-            await self.bot.say(util.get_random_index(config.lines.shutdown))
+            await ctx.channel.send(util.get_random_index(config.lines.shutdown))
             await self.bot.change_presence(status=discord.Status.offline)
             await self.bot.logout()
             await self.bot.close()
         else:
-            await self.bot.say(util.get_random_index(config.lines.dumb))
+            await ctx.channel.send(util.get_random_index(config.lines.dumb))
 
-    @commands.command(pass_context=True, hidden=True)
+    @commands.command(hidden=True)
     async def ping(self, ctx):
         '''Pings the bot to check that it hasn't died or something'''
         self._logger.info(ctx.message.author.id + " pinged")
-        await self.bot.say("PONGU!")
+        await ctx.channel.send("PONGU!")
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def prefix(self, ctx, prefix: str = None):
         """
         Change the prefix for this bot.
@@ -46,7 +46,7 @@ class Misc:
             user = db.database.getUserFromCtx(session, ctx, commit=False)[0]
 
             if prefix is None:
-                await self.bot.say("The prefix is `{}`".format(user.active_server.prefix))
+                await ctx.channel.send("The prefix is `{}`".format(user.active_server.prefix))
                 return
 
             try:
@@ -55,17 +55,17 @@ class Misc:
                     user.active_server.prefix = prefix
                     session.commit()
 
-                    await self.bot.say(
+                    await ctx.channel.send(
                         "Successfully changed the prefix to `{}`".format(
                             user.active_server.prefix))
                 else:
-                    await self.bot.say(
+                    await ctx.channel.send(
                         "You don't have the permissions to change my prefix!")
             except:
-                await self.bot.say(
+                await ctx.channel.send(
                     "You don't have the permissions to change my prefix!")
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def active(self, ctx):
         """
         Get your active server
@@ -89,7 +89,7 @@ class Misc:
                 await bot.say(
                     "No server is currently active, use `activate` to activate a server")
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def activate(self, ctx):
         """
         Activate the current server for PM use
@@ -97,18 +97,18 @@ class Misc:
 
         if ctx.message.channel.type in [discord.ChannelType.private,
                                         discord.ChannelType.group]:
-            await self.bot.say(
+            await ctx.channel.send(
                 "You can't use that command here.  Use it in a server to activate that server.")
             return
 
         with db.database.session() as session:
             db.database.getUserFromCtx(session, ctx, update_server=True)
 
-            await self.bot.say(
+            await ctx.channel.send(
                 "**{}** is now your active server.".format(
                     str(ctx.message.server)))
 
-    @commands.command(pass_context=True, aliases=['getdm', 'getgm'])
+    @commands.command(aliases=['getdm', 'getgm'])
     async def getmod(self, ctx):
         """
         Get the current moderator role
@@ -120,7 +120,7 @@ class Misc:
             if server is None:
 
                 async def error():
-                    await self.bot.say("You can't use this command here")
+                    await ctx.channel.send("You can't use this command here")
 
                 if db_server is None:
                     await error()
@@ -138,12 +138,12 @@ class Misc:
                 mod_id = str(db_server.mod_id)
                 role = next(role for role in server.roles
                             if role.id == mod_id)
-                await self.bot.say(
+                await ctx.channel.send(
                     "The current moderator role is **{}**".format(role.name))
             except StopIteration:
-                await self.bot.say("There is no moderator set")
+                await ctx.channel.send("There is no moderator set")
 
-    @commands.command(pass_context=True, usage="<role>",
+    @commands.command(usage="<role>",
                       aliases=['setdm', 'setgm'])
     async def setmod(self, ctx, *, role_name: str):
         """
@@ -160,7 +160,7 @@ class Misc:
 
         if ctx.message.channel.type in [discord.ChannelType.private,
                                         discord.ChannelType.group]:
-            await self.bot.say("You can't use that command here.")
+            await ctx.channel.send("You can't use that command here.")
             return
 
         message = list()
@@ -193,17 +193,17 @@ class Misc:
 
                             message.append("I made {} a moderator!".format(name))
 
-                            await self.bot.say('\n'.join(message))
+                            await ctx.channel.send('\n'.join(message))
                             return
 
-                    await self.bot.say(
+                    await ctx.channel.send(
                         "I couldn't find the role: {}".format(role_name))
                 else:
-                    await self.bot.say(
+                    await ctx.channel.send(
                         "You don't have the permissions to change the moderator")
             except Exception as err:
                 import traceback
                 self._logger.error(traceback.extract_tb(err.__traceback__))
                 self._logger.error(err)
-                await self.bot.say(
+                await ctx.channel.send(
                     "You don't have the permissions to change the moderator")

@@ -14,7 +14,7 @@ from .. import db
 
 
 # Roleplay init module
-class Dice:
+class Dice(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
@@ -75,10 +75,10 @@ class Dice:
         if text is not None:
             messages.append(str(text))
 
-    async def send(self, messages):
-        await self.bot.say('\n'.join(messages))
+    async def send(self, ctx, messages):
+        await ctx.channel.send('\n'.join(messages))
 
-    @commands.command(pass_context=True, aliases=['calc'])
+    @commands.command(aliases=['calc'])
     async def roll(self, ctx: commands.Context, *, equation: str):
         """
         Calculates an equation.
@@ -128,7 +128,7 @@ class Dice:
                 util.dice.logging_enabled = False
             except util.BadEquation as exception:
                 self.say(message, exception)
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             dice = util.dice.rolled_dice
@@ -138,26 +138,26 @@ class Dice:
                     dice + [(value, None)]))
 
             self.say(message, "**{}**".format(value))
-            await self.send(message)
+            await self.send(ctx, message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
 
     @commands.command()
-    async def coinflip(self):
+    async def coinflip(self, ctx):
         '''Flips a coin.'''
         HeadTails = util.dice.roll(2)
 
         if HeadTails == 1:
-            await  self.bot.say("Tails, but you're dead either way")
+            await self.send(ctx, ["Tails, but you're dead either way"])
         else:
-            await  self.bot.say("Heads, but you're dead either way")
+            await self.send(ctx, ["Heads, but you're dead either way"])
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
 
     @commands.command()
-    async def adv(self, sides='20'):
+    async def adv(self, ctx, sides='20'):
         """
         Rolls a die with advantage.
         """
@@ -183,13 +183,13 @@ class Dice:
 
         self.say(message, self.print_dice_one_liner(
                  [(d1, sides), (d2, sides)]))
-        await self.send(message)
+        await self.send(ctx, message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
 
     @commands.command()
-    async def dis(self, sides='20'):
+    async def dis(self, ctx, sides='20'):
         """
         Rolls a die with disadvantage.
         """
@@ -215,13 +215,13 @@ class Dice:
 
         self.say(message, self.print_dice_one_liner(
                  [(d1, sides), (d2, sides)]))
-        await self.send(message)
+        await self.send(ctx, message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
 
     @commands.command()
-    async def top(self, times='4', sides='6', top_dice='3'):
+    async def top(self, ctx, times='4', sides='6', top_dice='3'):
         """
         Rolls a number of dice, and takes only the top dice.
         """
@@ -233,8 +233,8 @@ class Dice:
             times = int(times)
             top_dice = int(top_dice)
         except ValueError:
-            self.bot.say(
-                "You're supposed to enter number not whatever that was")
+            await self.send(ctx,
+                ["You're supposed to enter number not whatever that was"])
             return
 
         util.dice.logging_enabled = True
@@ -250,13 +250,13 @@ class Dice:
             self.say(message, one_liner)
 
         self.say(message, "You got **{}**".format(total))
-        await self.send(message)
+        await self.send(ctx, message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
 
     @commands.command(name='bot')
-    async def _bot(self, times='4', sides='6', top_dice='3'):
+    async def _bot(self, ctx, times='4', sides='6', top_dice='3'):
         """
         Rolls a number of dice, and takes only the bottom dice.
         """
@@ -268,8 +268,8 @@ class Dice:
             times = int(times)
             top_dice = int(top_dice)
         except ValueError:
-            self.bot.say(
-                "You're supposed to enter number not whatever that was")
+            await self.send(ctx,
+                ["You're supposed to enter number not whatever that was"])
             return
 
         util.dice.logging_enabled = True
@@ -286,7 +286,7 @@ class Dice:
             self.say(message, one_liner)
 
         self.say(message, "You got **{}**".format(total))
-        await self.send(message)
+        await self.send(ctx, message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
