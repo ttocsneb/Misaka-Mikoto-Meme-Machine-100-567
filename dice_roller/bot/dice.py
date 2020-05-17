@@ -1,23 +1,20 @@
 import asyncio
+import logging
 import math
 import re
-import logging
-
-_logger = logging.getLogger(__name__)
 
 from discord.ext import commands
 
+from .. import db, util
 from ..config import config
-from .. import util
 
-from .. import db
+_logger = logging.getLogger(__name__)
 
 
 # Roleplay init module
 class Dice(commands.Cog):
 
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self):
         self._check_vars = re.compile(r"{(.*?)}")
 
     @staticmethod
@@ -167,7 +164,7 @@ class Dice(commands.Cog):
         try:
             sides = int(sides)
         except ValueError:
-            self.bot.say("That's not a number, silly.")
+            await ctx.channel.send("That's not a number, silly.")
             return
 
         d1 = util.dice.roll(sides)
@@ -199,7 +196,7 @@ class Dice(commands.Cog):
         try:
             sides = int(sides)
         except ValueError:
-            await self.bot.say("That's not a number, silly.")
+            await ctx.channel.send("That's not a number, silly.")
             return
 
         d1 = util.dice.roll(sides)

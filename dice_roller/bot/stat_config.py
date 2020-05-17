@@ -12,9 +12,6 @@ class Config(commands.Cog):
 
     _logger = logging.getLogger(__name__)
 
-    def __init__(self, bot):
-        self.bot = bot
-
     @staticmethod
     def say(messages, string):
         if string:

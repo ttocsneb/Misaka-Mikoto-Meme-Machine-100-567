@@ -13,18 +13,19 @@ from .. import db
 
 class Misc(commands.Cog):
 
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self):
         self._logger = logging.getLogger(__name__)
 
     @commands.command(hidden=True)
     async def headpat(self, ctx):
         '''Usage: don't.'''
         if ctx.message.author.id in config.config.mods:
-            await ctx.channel.send(util.get_random_index(config.lines.shutdown))
-            await self.bot.change_presence(status=discord.Status.offline)
-            await self.bot.logout()
-            await self.bot.close()
+            await ctx.channel.send(
+                util.get_random_index(config.lines.shutdown)
+            )
+            await ctx.bot.change_presence(status=discord.Status.offline)
+            await ctx.bot.logout()
+            await ctx.bot.close()
         else:
             await ctx.channel.send(util.get_random_index(config.lines.dumb))
 
@@ -46,7 +47,9 @@ class Misc(commands.Cog):
             user = db.database.getUserFromCtx(session, ctx, commit=False)[0]
 
             if prefix is None:
-                await ctx.channel.send("The prefix is `{}`".format(user.active_server.prefix))
+                await ctx.channel.send("The prefix is `{}`".format(
+                    user.active_server.prefix
+                ))
                 return
 
             try:
@@ -61,7 +64,7 @@ class Misc(commands.Cog):
                 else:
                     await ctx.channel.send(
                         "You don't have the permissions to change my prefix!")
-            except:
+            except Exception:
                 await ctx.channel.send(
                     "You don't have the permissions to change my prefix!")
 
@@ -73,21 +76,25 @@ class Misc(commands.Cog):
         Get the name of the server that is currently
         selected for when you are direct messaging this bot.
         """
-        bot = self.bot
-        servers = bot.servers
+        servers = ctx.bot.guilds
 
         with db.database.session() as session:
             active_server = session.query(db.schema.User).get(
                 ctx.message.author.id).active_server
 
             try:
-                server = [s for s in servers if int(s.id) == active_server.id][0]
+                server = [
+                    s for s in servers if int(s.id) == active_server.id
+                ][0]
 
-                await bot.say(
-                    "**{}** is currently the active server".format(str(server)))
+                await ctx.channel.send(
+                    "**{}** is currently the active server".format(str(server))
+                )
             except IndexError:
-                await bot.say(
-                    "No server is currently active, use `activate` to activate a server")
+                await ctx.channel.send(
+                    ("No server is currently active, use `activate` to"
+                     " activate a server")
+                )
 
     @commands.command()
     async def activate(self, ctx):
@@ -98,7 +105,9 @@ class Misc(commands.Cog):
         if ctx.message.channel.type in [discord.ChannelType.private,
                                         discord.ChannelType.group]:
             await ctx.channel.send(
-                "You can't use that command here.  Use it in a server to activate that server.")
+                ("You can't use that command here.  Use it in a server to"
+                 " activate that server.")
+            )
             return
 
         with db.database.session() as session:
@@ -116,7 +125,7 @@ class Misc(commands.Cog):
 
         with db.database.session() as session:
             db_server = db.database.getServerFromCtx(session, ctx)[0]
-            server = ctx.message.server
+            server = ctx.message.guild
             if server is None:
 
                 async def error():
@@ -129,7 +138,7 @@ class Misc(commands.Cog):
                 sid = str(db_server.id)
 
                 try:
-                    server = next(i for i in self.bot.servers if i.id == sid)
+                    server = next(i for i in ctx.bot.guilds if i.id == sid)
                 except StopIteration:
                     await error()
                     return
@@ -173,31 +182,29 @@ class Misc(commands.Cog):
             member = user.getMember(ctx)
 
             try:
-                if member.server_permissions.manage_server or \
+                if member.guild_permissions.manage_guild or \
                         member.id in config.config.mods:
 
                     role_name = role_name.lower()
-                    for role in ctx.message.server.roles:
-                        if role_name in [role.name.lower(), role.mention.lower()]:
-                            server.mod_id = role.id
+                    try:
+                        role = next(role for role in ctx.messages.guild.roles
+                                    if role_name in
+                                    [role.name.lower(), role.mention.lower()])
+                        server.mod_id = role.id
 
-                            name = role.name
-                            if role.mentionable:
-                                name = role.mention
+                        name = role.name
+                        if role.mentionable:
+                            name = role.mention
 
-                            session.commit()
+                        session.commit()
 
-                            if role.is_everyone:
-                                message.append(
-                                    "I don't recommend you to make everyone into a moderator, but you do you.\n")
+                        message.append("I made {} a moderator!".format(name))
 
-                            message.append("I made {} a moderator!".format(name))
-
-                            await ctx.channel.send('\n'.join(message))
-                            return
-
-                    await ctx.channel.send(
-                        "I couldn't find the role: {}".format(role_name))
+                        await ctx.channel.send('\n'.join(message))
+                        return
+                    except StopIteration:
+                        await ctx.channel.send(
+                            "I couldn't find the role: {}".format(role_name))
                 else:
                     await ctx.channel.send(
                         "You don't have the permissions to change the moderator")

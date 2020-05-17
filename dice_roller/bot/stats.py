@@ -10,9 +10,6 @@ class Stats(commands.Cog):
 
     _logger = logging.getLogger(__name__)
 
-    def __init__(self, bot):
-        self.bot = bot
-
     @staticmethod
     def say(messages, string):
         if string:
@@ -491,7 +488,7 @@ class Stats(commands.Cog):
                 return
 
             # Send the typing signal to discord
-            await self.bot.send_typing(ctx.message.channel)
+            await ctx.message.channel.typing()
 
             stats = user.stats
             defaults = session.query(db.schema.RollStat).filter(

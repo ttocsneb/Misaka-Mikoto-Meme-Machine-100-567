@@ -1,17 +1,15 @@
-import logging
 import asyncio
+import logging
 
 from discord.ext import commands
 
-from .. import util
+from .. import db, util
 from ..util import variables
-from .. import db
 
 
 class Equations(commands.Cog):
 
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self):
         self._logger = logging.getLogger(__name__)
 
     @staticmethod
@@ -215,13 +213,19 @@ class Equations(commands.Cog):
                         self.say(message, "Changed {} equation".format(
                             equation.printName()))
                     else:
-                        self.say(message,
-                                "There were errors while updating everyone's stats")
-                        self.say(message,
-                                "Make sure that stats are updated, or that this equation is backwards compatible.")
-                        self.say(message,
-                                "\nThe equation {} is still changed though."
-                                .format(equation.printName()))
+                        self.say(
+                            message,
+                            "There were errors while updating everyone's stats"
+                        )
+                        self.say(
+                            message,
+                            ("Make sure that stats are updated, or that this"
+                             " equation is backwards compatible.")
+                        )
+                        self.say(
+                            message,
+                            "\nThe equation {} is still changed though."
+                            .format(equation.printName()))
                 else:
                     self.say(message, "You don't have permission for that.")
 

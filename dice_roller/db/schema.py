@@ -246,11 +246,11 @@ class User(Base):
         if member is not None:
             try:
                 # Check if the user has permission to change the server
-                if member.server_permissions.manage_server:
+                if member.guild_permissions.manage_guild:
                     return True
 
                 # Check if the user is a server moderator for the bot
-                if self.active_server.mod.id == self.id:
+                if next((True for r in member.roles if r.id == self.active_server.mod.id), False):
                     return True
             except:
                 import traceback

@@ -31,7 +31,8 @@ class Bot:
                     discord.ChannelType.group]:
                 # Get all the prefixes from each server the user is a part of
                 prefixes = [s.prefix for s in user.servers]
-                return prefixes + [commands.when_mentioned(bot, message)]
+                prefixes.append(commands.when_mentioned(bot, message))
+                return prefixes
 
             server = user.active_server
 
@@ -45,11 +46,11 @@ class Bot:
             pm_help=None
         )
 
-        self.bot.add_cog(misc.Misc(self.bot))
-        self.bot.add_cog(dice.Dice(self.bot))
-        self.bot.add_cog(equations.Equations(self.bot))
-        self.bot.add_cog(stats.Stats(self.bot))
-        self.bot.add_cog(stat_config.Config(self.bot))
+        self.bot.add_cog(misc.Misc())
+        self.bot.add_cog(dice.Dice())
+        self.bot.add_cog(equations.Equations())
+        self.bot.add_cog(stats.Stats())
+        self.bot.add_cog(stat_config.Config())
 
     def run(self):
         if self.bot is None:
