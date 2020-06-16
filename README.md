@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/ttocsneb/discordDiceBot.svg?branch=master)](https://travis-ci.com/ttocsneb/discordDiceBot)
+[![Build Status](https://github.drone.home.benscraft.info/api/badges/ttocsneb/discordDiceBot/status.svg)](https://github.drone.home.benscraft.info/ttocsneb/discordDiceBot)
 [![CodeFactor](https://www.codefactor.io/repository/github/ttocsneb/discorddicebot/badge)](https://www.codefactor.io/repository/github/ttocsneb/discorddicebot)
 
 # Discord Dice Roller Bot

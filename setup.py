@@ -9,10 +9,10 @@ with open('README.md', 'r') as fh:
 # All the pip dependencies required for installation.
 INSTALL_REQUIRES = [
       'discord.py==0.16.12',
-      'ruamel.yaml',
-      'marshmallow',
-      'SQLAlchemy',
-      'alembic'
+      'ruamel.yaml==0.15.96',
+      'marshmallow==2.19.2',
+      'SQLAlchemy==1.3.3',
+      'alembic==1.0.10'
 ]
 
 
@@ -20,7 +20,7 @@ def params():
 
       name = "Dice Roller"
 
-      version = "0.3.1"
+      version = "0.4.0"
 
       description = "A Discord Dice Rolling bot."
 

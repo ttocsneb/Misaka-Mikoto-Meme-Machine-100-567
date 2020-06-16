@@ -1,0 +1,10 @@
+type: docker
+kind: pipeline
+name: default
+
+steps:
+  - name: Test
+    image: python:3.6
+    commands:
+      - pip install .
+      - python -m unittests

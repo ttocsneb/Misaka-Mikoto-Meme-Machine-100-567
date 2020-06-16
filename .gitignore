@@ -9,6 +9,10 @@ __pycache__
 
 .vscode
 
+# vim
+
+.vim
+
 # bot
 
 config.yaml
