@@ -22,7 +22,12 @@ class Context:
         functs.AndFunction(),
         functs.OrFunction(),
         functs.EqFunction(),
-        functs.NotFunction()
+        functs.NotFunction(),
+        functs.MaxFunction(),
+        functs.MinFunction(),
+        functs.AdvFunction(),
+        functs.TopFunction(),
+        functs.BotFunction()
     ]
 
     def __init__(self,

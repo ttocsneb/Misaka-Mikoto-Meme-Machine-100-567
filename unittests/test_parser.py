@@ -134,3 +134,6 @@ class TestParser(unittest.TestCase):
         self.assertEqual(
             8, parser.parseString("5--3", context)
         )
+        self.assertEqual(
+            15, parser.parseString("(2^4-1)", context)
+        )

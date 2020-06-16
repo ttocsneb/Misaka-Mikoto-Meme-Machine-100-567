@@ -22,3 +22,6 @@ config.yaml
 *.dat
 
 *.log
+
+*.old
+*.tmp

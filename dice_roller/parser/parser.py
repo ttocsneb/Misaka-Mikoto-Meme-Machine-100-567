@@ -62,6 +62,8 @@ def getToken(tokens, index):
 def compareToken(tokens, index, expected):
     if index >= len(tokens):
         return False
+    if isinstance(expected, list):
+        return tokens[index].tokenType in expected
     return tokens[index].tokenType == expected
 
 
@@ -91,7 +93,7 @@ class OperatorRule(Rule):
         lexer.MUL: lambda a, b: a * b,
         lexer.MOD: lambda a, b: a % b,
         lexer.EXP: lambda a, b: a ** b,
-        lexer.DICE: lambda a, b: dice.roll_sum(b, a),
+        lexer.DICE: lambda a, b: dice.roll_sum(b, a)[0],
         lexer.EQ: lambda a, b: toBool(a == b),
         lexer.NE: lambda a, b: toBool(a != b),
         lexer.LE: lambda a, b: toBool(a <= b),
@@ -221,7 +223,7 @@ class NumRule(OperableRule):
 
 class ParRule(OperableRule):
     def __init__(self):
-        self.start = StartRule()
+        self.start = Parser()
 
     @classmethod
     def peek(cls, tokens: tokenList, index: int) -> bool:
@@ -318,7 +320,7 @@ class FuncRule(OperableRule):
         if not compareToken(tokens, index + size, lexer.R_PAREN):
             loop = True
             while loop:
-                self.params.append(StartRule())
+                self.params.append(Parser())
                 size += self.params[-1].parse(tokens, index + size, text)
                 if compareToken(tokens, index + size, lexer.COMMA):
                     size += 1
@@ -423,10 +425,10 @@ class StartRule(OperableRule):
         return self.value.operate(context)
 
 
-class Parser:
-    def __init__(self, tokens: tokenList, raw: str):
-        self.tokens = tokens
-        self.raw = raw
+class Parser(OperableRule):
+    def __init__(self, tokens: tokenList = None, raw: str = None):
+        self.tokens = tokens or list()
+        self.raw = raw or ""
         self.start = StartRule()
         self.results = list()
 
@@ -442,6 +444,25 @@ class Parser:
                     "Expected Operator", self.tokens[position], self.raw
                 )
             position += size
+
+    @classmethod
+    def peek(cls, tokens: tokenList, index: int) -> bool:
+        return cls.start.peek(tokens, index)
+
+    def parse(self, tokens: tokenList, index: int, text: str) -> int:
+        self.start = StartRule()
+        self.results = list()
+        position = self.start.parse(tokens, index, text)
+        while compareToken(tokens, index + position,
+                           list(OperatorRule.operatorFunctions.keys())):
+            self.results.append(ComRule())
+            size = self.results[-1].parse(tokens, index + position, text)
+            if size == 0:
+                raise lexer.InvalidToken(
+                    "Expected Operator", tokens[index + position], text
+                )
+            position += size
+        return position
 
     def operate(self, context: Context) -> int:
         """

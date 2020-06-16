@@ -1,5 +1,7 @@
 from typing import List
 
+from dice_roller.util import dice
+
 
 def process(context, arg) -> int:
     from . import parser
@@ -13,6 +15,13 @@ def process(context, arg) -> int:
 
 def processArgs(context, args) -> List[int]:
     return [process(context, arg) for arg in args]
+
+
+def getArg(args, i, default):
+    try:
+        return args[i]
+    except Exception:
+        return default
 
 
 class Function:
@@ -135,3 +144,58 @@ class EqFunction(Function):
             if equal is not arg:
                 return 0
         return 1
+
+
+class MaxFunction(Function):
+    def __init__(self):
+        self.name = "max"
+
+    def call(self, context, args) -> int:
+        args = processArgs(context, args)
+        return max(args)
+
+
+class MinFunction(Function):
+    def __init__(self):
+        self.name = "min"
+
+    def call(self, context, args) -> int:
+        args = processArgs(context, args)
+        return min(args)
+
+
+class AdvFunction(Function):
+    def __init__(self):
+        self.name = "adv"
+
+    def call(self, context, args) -> int:
+        args = args or [20]
+        arg = process(context, args[0])
+
+        return max(dice.roll(arg), dice.roll(arg))
+
+
+class TopFunction(Function):
+    def __init__(self):
+        self.name = "top"
+
+    def call(self, context, args) -> int:
+        args = processArgs(context, args[:3])
+        times = getArg(args, 0, 4)
+        sides = getArg(args, 1, 6)
+        top = getArg(args, 2, 3)
+
+        return dice.roll_top(sides, top, times)
+
+
+class BotFunction(Function):
+    def __init__(self):
+        self.name = "bot"
+
+    def call(self, context, args) -> int:
+        args = processArgs(context, args[:3])
+        times = getArg(args, 0, 4)
+        sides = getArg(args, 1, 6)
+        bot = getArg(args, 2, 3)
+
+        return dice.roll_top(sides, bot, times, False)
