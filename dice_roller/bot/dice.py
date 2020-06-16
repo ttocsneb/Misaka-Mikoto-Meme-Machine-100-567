@@ -131,7 +131,9 @@ class Dice:
                 ))
                 context.variables.add_dynamic(parser.ConverterDict(
                     user.stats,
-                    lambda k, v: v.value
+                    lambda k, v: int(v.calc or parser.parseString(
+                        v.value, context)
+                    )
                 ))
 
                 util.dice.logging_enabled = True

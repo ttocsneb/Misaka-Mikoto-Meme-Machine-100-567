@@ -5,6 +5,8 @@ from discord.ext import commands
 
 from .. import util, db
 
+from dice_roller import parser
+
 
 class Stats:
 
@@ -38,14 +40,13 @@ class Stats:
         if user is None and message is not None:
             self.say(
                 message,
-                "You aren't registered with any server and can't " + 
+                "You aren't registered with any server and can't " +
                 "register here!"
             )
         return user
 
     @classmethod
     def print_group(cls, message, group):
-
         if group.name:
             cls.say(message, '#{}:'.format(group.name))
 
@@ -119,22 +120,23 @@ class Stats:
 
                 try:
                     cls.calc_stat_value(session, user, stat)
-                except util.BadEquation as be:
+                except parser.lexer.InvalidToken as invalid:
                     errors = True
                     cls._logger.warning(
                         "There was an error while calculating the stat value" +
-                        " ({}): {}".format(str(stat), str(be)))
+                        " ({}): {}".format(str(stat), str(invalid)))
 
         return not errors
 
     @classmethod
     def calc_stat_value(cls, session, user: db.schema.User,
-                        stat: db.schema.Stat, parse_randoms=False):
+                        stat: db.schema.Stat, parse_randoms=False,
+                        context: parser.Context = None):
         """
         Calculate the stat values for the given stat, and all stats that depend
         on this stat.
 
-        raises util.BadEquation error on a bad equation
+        raises parser.lexer.InvalidToken error on a bad equation
         """
 
         # 5. set calc to None
@@ -142,10 +144,23 @@ class Stats:
 
         # 1. check if there are dice rolls
         util.dice.logging_enabled = True
-        eq = util.calculator.parse_args(stat.value, session, user,
-                                        use_calculated=False)
+        if context is None:
+            context = parser.Context()
+            context.variables.add_dynamic(
+                parser.ConverterDict(
+                    user.stats,
+                    lambda k, v: parser.parseString(v.value, context)
+                )
+            )
+            context.functions.add_dynamic(parser.ConverterDict(
+                db.DynamicObject(
+                    session, db.schema.Equation, user.active_server, user
+                ),
+                lambda k, v: parser.functions.Function(k, v.value)
+            ))
+
         # 2. calculate equation
-        value = util.calculator.parse_equation(eq, session, user)
+        value = parser.parseString(stat.value, context)
         util.dice.logging_enabled = False
 
         dice = util.dice.rolled_dice
@@ -156,7 +171,7 @@ class Stats:
 
         # 6. check if there are dependent stats
 
-        errors = False
+        errors = list()
 
         name = stat.fullname
         for st in user.stats.values():
@@ -164,13 +179,19 @@ class Stats:
                       in util.variables.getVariables(str(st.value).lower())]
             if name in params:
                 try:
-                    cls.calc_stat_value(session, user, st)
-                except util.BadEquation:
-                    errors = True
+                    cls.calc_stat_value(session, user, st, parse_randoms, context)
+                except Exception as invalid:
+                    if isinstance(invalid, RuntimeError):
+                        raise invalid
+                    errors.append("{}\n{}\n{}".format(
+                        "-" * 10, name, str(invalid)
+                    ))
 
         if errors:
-            raise util.BadEquation(
-                "There were errors while calculating dependent stats.")
+            raise RuntimeError(
+                "There were errors while calculating dependent stats:\n"
+                + "\n\n".join(errors)[0:1900]
+            )
 
         return dice
 
@@ -207,7 +228,7 @@ class Stats:
                 await self.send(message)
                 return
 
-            self.say(message, "```python")
+            self.say(message, "```sh")
 
             for group in stats.iter_groups():
                 self.print_group(message, stats.get_group(group))
@@ -242,7 +263,7 @@ class Stats:
                 await self.send(message)
                 return
 
-            self.say(message, "```python")
+            self.say(message, "```sh")
 
             self.print_group(message, stats)
 
@@ -275,15 +296,18 @@ class Stats:
 
             try:
                 self.calc_stat_value(session, user, stat)
-            except util.BadEquation as be:
-                self.say(message, "Invalid equation: " + str(be))
+            except Exception as be:
+                self.say(message, "Invalid equation:")
+                self.say(message, '```sh')
+                self.say(message, str(be))
+                self.say(message, '```')
                 await self.send(message)
                 session.rollback()
                 return
             session.commit()
 
             self.say(message, "Set **{}** stat to".format(str(stat)))
-            self.say(message, "```python")
+            self.say(message, "```sh")
             if stat.calc is not None:
                 calc = int(stat.calc) if int(stat.calc) == stat.calc \
                     else stat.calc
@@ -431,7 +455,7 @@ class Stats:
                 return
 
             self.say(message, "Default Stats")
-            self.say(message, "```python")
+            self.say(message, "```sh")
 
             for group in stats.iter_groups():
                 self.print_group(message, stats.get_group(group))
@@ -469,7 +493,7 @@ class Stats:
                 await self.send(message)
                 return
 
-            self.say(message, "```python")
+            self.say(message, "```sh")
             self.print_group(message, stats)
             self.say(message, "```")
 
@@ -555,13 +579,15 @@ class Stats:
                                 else stat.calc
                             self.say(message, "`{}`: **{}**".format(
                                 stat.fullname, calc))
-                    except util.BadEquation as be:
+                    except Exception as be:
                         self.say(
-                            errors, 
+                            errors,
                             "There was an error while setting {}:".format(
                                 stat.name)
                         )
+                        self.say(errors, '```sh')
                         self.say(errors, str(be))
+                        self.say(errors, '```')
 
             # Calculate random stats first
             await calc_stat(random_stats)
@@ -620,7 +646,7 @@ class Stats:
 
             self.say(message, "Changed the default stat for {} to".format(
                 db.data_models.Stats.get_name(group, name)))
-            self.say(message, "```python")
+            self.say(message, "```sh")
             self.say(message, stat.value)
             self.say(message, "```")
 
