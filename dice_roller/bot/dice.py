@@ -1,16 +1,17 @@
 import asyncio
+import logging
 import math
 import re
-import logging
-
-_logger = logging.getLogger(__name__)
 
 from discord.ext import commands
 
-from ..config import config
-from .. import util
+from dice_roller import parser
+from dice_roller.parser.lexer import InvalidToken
 
-from .. import db
+from .. import db, util
+from ..config import config
+
+_logger = logging.getLogger(__name__)
 
 
 # Roleplay init module
@@ -78,7 +79,7 @@ class Dice:
     async def send(self, messages):
         await self.bot.say('\n'.join(messages))
 
-    @commands.command(pass_context=True, aliases=['calc'])
+    @commands.command(pass_context=True, aliases=['r'])
     async def roll(self, ctx: commands.Context, *, equation: str):
         """
         Calculates an equation.
@@ -121,13 +122,25 @@ class Dice:
             server, _ = db.database.getServerFromCtx(session, ctx)
 
             try:
-                if server is not None:
-                    equation = util.calculator.parse_args(equation, session, user)
+                context = parser.Context()
+                context.functions.add_dynamic(parser.ConverterDict(
+                    db.DynamicObject(
+                        session, db.schema.Equation, server, user
+                    ),
+                    lambda k, v: parser.functions.Function(k, v.value)
+                ))
+                context.variables.add_dynamic(parser.ConverterDict(
+                    user.stats,
+                    lambda k, v: v.value
+                ))
+
                 util.dice.logging_enabled = True
-                value = util.calculator.parse_equation(equation, session, user)
+                value = parser.parseString(equation, context)
                 util.dice.logging_enabled = False
-            except util.BadEquation as exception:
+            except Exception as exception:
+                self.say(message, "```sh")
                 self.say(message, exception)
+                self.say(message, "```")
                 await self.send(message)
                 return
 

@@ -39,7 +39,9 @@ class Function:
     def call(self, context, args) -> int:
         from . import Context
         args = processArgs(context, args)
-        ctx = Context(args, context.functions, context.variables)
+        ctx = Context(args)
+        ctx.variables = context.variables
+        ctx.functions = context.functions
         return self.parser.operate(ctx)
 
 

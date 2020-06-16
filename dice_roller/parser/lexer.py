@@ -86,25 +86,29 @@ class Token:
 
 
 class InvalidToken(Exception):
-    def __init__(self, msg: str, token: Token, text: str):
+    def __init__(self, msg: str, token: Token, text: str,
+                 print_got: bool = True):
         self.msg = msg or "Invalid Token"
         self.token = token
         self.text = text
+        self.print_got = print_got
 
     def __str__(self):
         pointer = (" " * self.token.character) + "^"
-        return "%s. Got: \"%s\"\n%s\n%s" % (
-            self.msg, self.token, self.text, pointer
+        got = "Got: '%s'" % self.token
+        return "%s. %s\n%s\n%s" % (
+            self.msg, got if self.print_got else "", self.text, pointer
         )
 
 
-def assertTerminal(msg: str, expected: int, actual: Token, text: str):
+def assertTerminal(msg: str, expected: int, actual: Token, text: str,
+                   print_got: bool = True):
     if isinstance(expected, list):
         if actual.tokenType not in expected:
-            raise InvalidToken(msg, actual, text)
+            raise InvalidToken(msg, actual, text, print_got)
     else:
         if actual.tokenType != expected:
-            raise InvalidToken(msg, actual, text)
+            raise InvalidToken(msg, actual, text, print_got)
 
 
 class NumberRule:
@@ -158,7 +162,7 @@ class StringRule:
 class NameRule:
     @classmethod
     def parse(cls, text) -> Token:
-        match = re.match(r"\w+(\.\w+)*", text)
+        match = re.match(r"[^\s\-*/+<>=()$,%?]+", text)
         if match:
             return Token(NAME, match[0])
 

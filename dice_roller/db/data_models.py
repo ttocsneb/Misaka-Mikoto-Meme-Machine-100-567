@@ -3,9 +3,7 @@ import collections
 
 
 class Stats(collections.MutableMapping):
-
     class Group(collections.MutableMapping):
-
         def __init__(self, user, group, group_name):
             self._user = user
             self._group = group

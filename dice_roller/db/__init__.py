@@ -1,16 +1,15 @@
-import os
-import sqlalchemy
-from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.exc import IntegrityError
-from contextlib import contextmanager
-
 import functools
 import logging
+import os
+from collections import Mapping
+from contextlib import contextmanager
 
 import re
+import sqlalchemy
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 
 import alembic.config
-
 from ..config import config, config_dir
 
 from . import schema
@@ -209,6 +208,40 @@ class Database:
         ).first()
 
         return obj
+
+
+class DynamicObject(Mapping):
+    """
+    A Dynamic mapping for a specific class:
+
+    * Variable
+    * Function
+    """
+
+    def __init__(self, session, clss, server, user=None):
+        self.session = session
+        self.clss = clss
+        self.server_id = server.id if server else None
+        self.user_id = user.id if user else None
+
+    def __getitem__(self, key):
+        value = Database.get_from_string(
+            self.session, self.clss, key, self.server_id, self.user_id
+        )
+        if value is None:
+            raise KeyError
+        return value
+
+    def __iter__(self):
+        for obj in self.session.query(self.clss).filter(
+                    self.clss.server_id == int(self.server_id)
+                ).all():
+            yield "{}:{}".format(obj.name, obj.id)
+
+    def __len__(self):
+        return self.session.query(self.clss).filter(
+            self.clss.server_id == int(self.server_id)
+        ).count()
 
 
 database = Database(config.config.db_file)

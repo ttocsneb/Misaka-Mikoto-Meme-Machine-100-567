@@ -240,7 +240,7 @@ class ParRule(OperableRule):
         size += self.start.parse(tokens, index + size, text)
 
         lexer.assertTerminal(
-            "Expected ')'", lexer.R_PAREN, getToken(tokens, index + size), text
+            "Expected matching ')'", lexer.R_PAREN, getToken(tokens, index + size), text
         )
         size += 1
         return size
@@ -253,6 +253,7 @@ class VarRule(OperableRule):
     def __init__(self):
         self.variable = None
         self.default = ValRule()
+        self.text = ""
         self.default_given = False
 
     @classmethod
@@ -265,10 +266,11 @@ class VarRule(OperableRule):
         self.default_given = False
         lexer.assertTerminal("Expected '$'", lexer.DOLLAR, tokens[index], text)
         lexer.assertTerminal(
-            "Expected name", [lexer.NAME, lexer.NUMBER], tokens[index + 1],
-            text
+            "Expected variable name", [lexer.NAME, lexer.NUMBER],
+            tokens[index + 1], text
         )
         self.variable = tokens[index + 1]
+        self.text = text
 
         size = 2
 
@@ -287,19 +289,31 @@ class VarRule(OperableRule):
                 return context.args[int(self.variable.content) - 1]
             return context.variables[self.variable.content]
 
+        def processVar(var):
+            if isinstance(var, OperableRule):
+                return var.operate(context)
+            return var
+
         if self.default_given:
             try:
-                return getVar()
+                return processVar(getVar())
             except KeyError:
                 return self.default.operate(context)
             except IndexError:
                 return self.default.operate(context)
-        return getVar()
+        try:
+            return processVar(getVar())
+        except IndexError:
+            msg = "Parameter not found"
+        except KeyError:
+            msg = "Variable not found"
+        raise lexer.InvalidToken(msg, self.variable, self.text, False)
 
 
 class FuncRule(OperableRule):
     def __init__(self):
-        self.name = ""
+        self.name = None
+        self.text = ""
         self.params = list()
 
     @classmethod
@@ -309,10 +323,14 @@ class FuncRule(OperableRule):
         return tokens[index].tokenType == lexer.NAME
 
     def parse(self, tokens: tokenList, index: int, text: str) -> int:
-        lexer.assertTerminal("expected name", lexer.NAME, tokens[index], text)
-        self.name = tokens[index].content
         lexer.assertTerminal(
-            "expected '('", lexer.L_PAREN, getToken(tokens, index + 1), text
+            "expected function name", lexer.NAME, tokens[index], text
+        )
+        self.name = tokens[index]
+        self.text = text
+        lexer.assertTerminal(
+            "expected opening '('", lexer.L_PAREN,
+            getToken(tokens, index + 1), text, False
         )
 
         size = 2
@@ -328,14 +346,36 @@ class FuncRule(OperableRule):
                     loop = False
 
         lexer.assertTerminal(
-            "expected ')'", lexer.R_PAREN, getToken(tokens, index + size), text
+            "expected closing function ')'", lexer.R_PAREN,
+            getToken(tokens, index + size), text
         )
         size += 1
 
         return size
 
     def operate(self, context: Context) -> int:
-        return context.functions[self.name].call(context, self.params)
+        try:
+            func = context.functions[self.name.content]
+        except KeyError:
+            raise lexer.InvalidToken(
+                "Could not find function '%s'" % self.name.content, self.name,
+                self.text, False
+            )
+        try:
+            return func.call(context, self.params)
+        except lexer.InvalidToken as invalid:
+            if "Parameter not found" not in invalid.msg \
+                    and "Not enough arguments given" not in invalid.msg:
+                inv = lexer.InvalidToken(
+                    "An error occurred while processing '%s'" % self.name.content,
+                    self.name, self.text, False
+                )
+                invalid.msg = "%s\n\n%s" % (str(inv), invalid.msg)
+                raise invalid
+            raise lexer.InvalidToken(
+                "Not enough arguments given for '%s'" % self.name.content,
+                self.name, self.text, False
+            )
 
 
 class ValueRule(OperableRule):
@@ -357,7 +397,9 @@ class ValueRule(OperableRule):
 
     def parse(self, tokens: tokenList, index: int, text: str) -> int:
         if not self.peek(tokens, index):
-            raise lexer.InvalidToken("Expected a value", tokens[index], text)
+            raise lexer.InvalidToken(
+                "Expected an operand", tokens[index], text
+            )
         self.value = self.values[tokens[index].tokenType]()
 
         return self.value.parse(tokens, index, text)
