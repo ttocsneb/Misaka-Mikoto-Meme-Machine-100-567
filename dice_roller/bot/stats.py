@@ -418,7 +418,8 @@ class Stats:
     # Default Stats
 
     @commands.group(pass_context=True,
-                    aliases=['defstats', 'confstats', 'ds', 'cs'])
+                    aliases=['defstats', 'confstats', 'ds', 'cs'],
+                    enabled=False)
     async def defaultstats(self, ctx: commands.Context):
         """
         default stats

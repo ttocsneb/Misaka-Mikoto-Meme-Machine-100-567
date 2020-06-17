@@ -9,6 +9,8 @@ from ..config import config as conf
 
 from . import misc, dice, equations, stats, stat_config
 
+import sys
+
 
 class Bot:
 
@@ -68,6 +70,15 @@ class Bot:
                 game=game)
 
             self._logger.info("______________")
+
+        @self.bot.event
+        async def on_error(event, *args, **kwargs):
+            print("AAAAAH")
+            await self.bot.say(
+                "An error occurred:\n```python\n{}\n````".format(
+                    str(sys.exc_info()[1])
+                )
+            )
 
         self.bot.run(conf.config.token)
 

@@ -4,17 +4,9 @@ import os
 import json
 
 
-class BadEquation(Exception):
-    pass
-
-
 # dice needs to be setup first, as calculator depends on dice
 from . import _dice
 dice = _dice.Dice()
-
-
-from . import _calculator
-calculator = _calculator.Calculator()
 
 
 def get_random_index(messages: list):
