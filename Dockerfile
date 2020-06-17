@@ -9,4 +9,4 @@ RUN pip install . mysqlclient
 
 COPY . .
 
-CMD [ "dice_roller" ]
+CMD python -m dice_roller
