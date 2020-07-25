@@ -20,7 +20,7 @@ def params():
 
       name = "Dice Roller"
 
-      version = "0.4.0"
+      version = "0.4.1"
 
       description = "A Discord Dice Rolling bot."
 
