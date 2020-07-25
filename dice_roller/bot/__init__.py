@@ -1,21 +1,22 @@
 import logging
-import asyncio
 
 import discord
 from discord.ext import commands
 
-from .. import config, db
+from .. import db
 from ..config import config as conf
 
 from . import misc, dice, equations, stats, stat_config
-
-import sys
 
 
 class Bot:
 
     def __init__(self):
-        self.bot = None
+        self.bot = commands.Bot(
+            command_prefix=self.get_prefix,
+            description=conf.config.description,
+            pm_help=None
+        )
         self._logger = logging.getLogger(__name__)
 
     def get_prefix(self, bot, message: discord.Message):
@@ -38,15 +39,9 @@ class Bot:
             server = user.active_server
 
         # Add the optional @ mention
-        return [server.prefix, commands.when_mentioned(bot, message)]
+        return tuple([server.prefix] + commands.when_mentioned(bot, message))
 
     def setup(self):
-        self.bot = commands.Bot(
-            command_prefix=self.get_prefix,
-            description=conf.config.description,
-            pm_help=None
-        )
-
         self.bot.add_cog(misc.Misc(self.bot))
         self.bot.add_cog(dice.Dice(self.bot))
         self.bot.add_cog(equations.Equations(self.bot))
@@ -67,18 +62,9 @@ class Bot:
 
             await self.bot.change_presence(
                 status=discord.Status.online,
-                game=game)
+                activity=game)
 
             self._logger.info("______________")
-
-        @self.bot.event
-        async def on_error(event, *args, **kwargs):
-            print("AAAAAH")
-            await self.bot.say(
-                "An error occurred:\n```python\n{}\n````".format(
-                    str(sys.exc_info()[1])
-                )
-            )
 
         self.bot.run(conf.config.token)
 

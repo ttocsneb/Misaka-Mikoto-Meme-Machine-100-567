@@ -1,5 +1,4 @@
 import logging
-import asyncio
 
 from discord.ext import commands
 
@@ -8,11 +7,11 @@ from ..db import config_loader
 from ..config import config
 
 
-class Config:
+class Config(commands.Cog):
 
     _logger = logging.getLogger(__name__)
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @staticmethod
@@ -20,10 +19,10 @@ class Config:
         if string:
             messages.append(str(string))
 
-    async def send(self, messages):
+    async def send(self, ctx: commands.Context, messages):
         message = '\n'.join(messages)
         if message:
-            await self.bot.say(message)
+            await ctx.send(message)
 
     def get_server(self, ctx: commands.Context, session, message,
                    commit=True) -> db.schema.Server:
@@ -87,7 +86,6 @@ class Config:
         temp_message.clear()
 
         # Try to load the config from a url
-        import traceback
         conf_loader = config_loader.ConfigLoader()
         import urllib.error
         try:
@@ -133,7 +131,7 @@ class Config:
 
         desc = self.get_loader(message)
         if not desc:
-            await self.send(message)
+            await self.send(ctx, message)
             return
 
         self.say(message, "```markdown")
@@ -141,7 +139,7 @@ class Config:
             self.say(message, "#{}\n- {}".format(name, item.desc))
         self.say(message, "```")
 
-        await self.send(message)
+        await self.send(ctx, message)
 
     @config.command(pass_context=True, usage="<name|url|json>",
                     aliases=['get'], name='info')
@@ -157,7 +155,7 @@ class Config:
 
         config, method = self.load_config(name, message)
         if not config:
-            await self.send(message)
+            await self.send(ctx, message)
             return
 
         if method == 'name':
@@ -194,10 +192,10 @@ class Config:
         self.say(eq_message, "```")
 
         if len('\n'.join(message + eq_message)) > 2000:
-            await self.send(message)
-            await self.send(eq_message)
+            await self.send(ctx, message)
+            await self.send(ctx, eq_message)
         else:
-            await self.send(message + eq_message)
+            await self.send(ctx, message + eq_message)
 
     @config.command(pass_context=True, usage="<name|url|json>", name='apply')
     async def c_apply(self, ctx: commands.Context, *, name: str):
@@ -212,7 +210,7 @@ class Config:
         message = list()
         config, method = self.load_config(name, message)
         if config is None:
-            await self.send(message)
+            await self.send(ctx, message)
             return
 
         if method == 'name':
@@ -228,7 +226,7 @@ class Config:
             if not user.checkPermissions(ctx):
                 self.say(message,
                          "You don't have permission to apply configurations")
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             # Apply the equations to the server
@@ -283,4 +281,4 @@ class Config:
             self.say(message, "Successfully applied {} to the server".format(
                 print_name))
 
-            await self.send(message)
+            await self.send(ctx, message)

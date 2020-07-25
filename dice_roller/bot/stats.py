@@ -8,11 +8,11 @@ from .. import util, db
 from dice_roller import parser
 
 
-class Stats:
+class Stats(commands.Cog):
 
     _logger = logging.getLogger(__name__)
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @staticmethod
@@ -20,10 +20,10 @@ class Stats:
         if string:
             messages.append(str(string))
 
-    async def send(self, messages):
+    async def send(self, ctx: commands.Context, messages):
         message = '\n'.join(messages)
         if message:
-            await self.bot.say(message)
+            await ctx.send(message)
 
     def get_server(self, ctx: commands.Context, session, message,
                    commit=True) -> db.schema.Server:
@@ -218,14 +218,14 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, True)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             stats = user.stats
 
             if not stats:
                 self.say(message, "You don't have any stats yet")
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             self.say(message, "```sh")
@@ -235,7 +235,7 @@ class Stats:
 
             self.say(message, "```")
 
-            await self.send(message)
+            await self.send(ctx, message)
 
     @stats.command(pass_context=True, usage="[group]", name='get')
     async def st_get(self, ctx: commands.Context, group=None):
@@ -249,7 +249,7 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, True)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             group = db.data_models.Stats.remove_specials(group) if group \
@@ -260,7 +260,7 @@ class Stats:
             except KeyError:
                 self.say(message, "You do not have the stat group `{}`".format(
                     group))
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             self.say(message, "```sh")
@@ -269,7 +269,7 @@ class Stats:
 
             self.say(message, "```")
 
-            await self.send(message)
+            await self.send(ctx, message)
 
     @stats.command(pass_context=True, usage="<stat> value",
                    aliases=['add', 'edit'], name='set')
@@ -285,7 +285,7 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, False)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             stats = user.stats
@@ -301,7 +301,7 @@ class Stats:
                 self.say(message, '```sh')
                 self.say(message, str(be))
                 self.say(message, '```')
-                await self.send(message)
+                await self.send(ctx, message)
                 session.rollback()
                 return
             session.commit()
@@ -320,7 +320,7 @@ class Stats:
             self.say(message, val)
             self.say(message, "```")
 
-            await self.send(message)
+            await self.send(ctx, message)
 
     @stats.command(pass_context=True, usage="<stat>", aliases=['rm'],
                    name='del')
@@ -334,7 +334,7 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, False)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             stats = user.stats
@@ -348,7 +348,7 @@ class Stats:
             except KeyError:
                 self.say(message, "Could not find **{}**".format(stat.lower()))
 
-            await self.send(message)
+            await self.send(ctx, message)
 
     @stats.group(pass_context=True, name="clear")
     async def st_clear(self, ctx: commands.Context):
@@ -366,7 +366,7 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, False)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             stats = user.stats
@@ -378,7 +378,7 @@ class Stats:
                 session.commit()
                 self.say(message, "Deleted all of your stats")
 
-            await self.send(message)
+            await self.send(ctx, message)
 
     @st_clear.command(pass_context=True, name="all")
     async def st_clr_all(self, ctx: commands.Context):
@@ -394,7 +394,7 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, False)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             if not user.checkPermissions(ctx):
@@ -402,7 +402,7 @@ class Stats:
                     message,
                     "You don't have permission to modify everybody's stats"
                 )
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             session.query(db.schema.Stat).filter_by(
@@ -413,7 +413,7 @@ class Stats:
 
             self.say(message, "Successfully deleted all user's stats")
 
-            await self.send(message)
+            await self.send(ctx, message)
 
     # Default Stats
 
@@ -441,7 +441,7 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, True)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             stats = session.query(db.schema.RollStat).filter(
@@ -452,7 +452,7 @@ class Stats:
 
             if not stats:
                 self.say(message, "There are no default stats yet.")
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             self.say(message, "Default Stats")
@@ -463,7 +463,7 @@ class Stats:
 
             self.say(message, "```")
 
-            await self.send(message)
+            await self.send(ctx, message)
 
     @defaultstats.command(pass_context=True, name="get", usage="[group]")
     async def ds_get(self, ctx: commands.Context, group=None):
@@ -476,7 +476,7 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, True)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             group = db.data_models.Stats.remove_specials(group) if group \
@@ -491,14 +491,14 @@ class Stats:
                 stats = db.data_models.Stats(user, stats).get_group(group)
             except KeyError:
                 self.say(message, "there is no group `{}`".format(group))
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             self.say(message, "```sh")
             self.print_group(message, stats)
             self.say(message, "```")
 
-            await self.send(message)
+            await self.send(ctx, message)
 
     @defaultstats.command(pass_context=True, name="apply", aliases=['roll'])
     async def ds_apply(self, ctx: commands.Context):
@@ -513,7 +513,7 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, False)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             # Send the typing signal to discord
@@ -601,7 +601,7 @@ class Stats:
 
             self.say(message, "I set your stats!")
 
-            await self.send(message)
+            await self.send(ctx, message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
@@ -619,12 +619,12 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, False)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             if not user.checkPermissions(ctx):
                 self.say(message, "You don't have permission to do that.")
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             group, name = db.data_models.Stats.parse_name(stat_name)
@@ -651,7 +651,7 @@ class Stats:
             self.say(message, stat.value)
             self.say(message, "```")
 
-            await self.send(message)
+            await self.send(ctx, message)
 
     @defaultstats.command(pass_context=True, usage="<stat>", name="del",
                           aliases=['rm'])
@@ -665,12 +665,12 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, False)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             if not user.checkPermissions(ctx):
                 self.say(message, "You don't have permission to do that")
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             group, name = db.data_models.Stats.parse_name(stat_name)
@@ -685,7 +685,7 @@ class Stats:
                 self.say(message,
                          "{} does not exist, so does not need to be deleted"
                          .format(db.data_models.Stats.get_name(group, name)))
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             session.delete(stat)
@@ -694,7 +694,7 @@ class Stats:
             self.say(message, "Deleted the default stat {}".format(
                 db.data_models.Stats.get_name(group, name)))
 
-            await self.send(message)
+            await self.send(ctx, message)
 
     @defaultstats.command(pass_context=True, name="clear")
     async def ds_clear(self, ctx: commands.Context):
@@ -707,12 +707,12 @@ class Stats:
         with db.database.session() as session:
             user = self.get_user(ctx, session, message, False)
             if user is None:
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             if not user.checkPermissions(ctx):
                 self.say(message, "You don't have permission to do that")
-                await self.send(message)
+                await self.send(ctx, message)
                 return
 
             session.query(db.schema.RollStat).filter_by(
@@ -722,4 +722,4 @@ class Stats:
             session.commit()
 
             self.say(message, "Successfully cleared all default stats")
-            await self.send(message)
+            await self.send(ctx, message)

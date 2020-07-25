@@ -8,7 +8,7 @@ with open('README.md', 'r') as fh:
 
 # All the pip dependencies required for installation.
 INSTALL_REQUIRES = [
-      'discord.py==0.16.12',
+      'discord.py==1.3.4',
       'ruamel.yaml==0.15.96',
       'marshmallow==2.19.2',
       'SQLAlchemy==1.3.3',

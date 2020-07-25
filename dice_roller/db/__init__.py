@@ -1,4 +1,3 @@
-import functools
 import logging
 import os
 from collections import Mapping
@@ -152,7 +151,7 @@ class Database:
                 return None, False
             return user.active_server, False
         # Get the server
-        return self.getServer(session, ctx.message.server.id, commit)
+        return self.getServer(session, ctx.message.guild.id, commit)
 
     def getUserFromCtx(self, session, ctx, update_server=True, commit=True):
         """
@@ -169,7 +168,7 @@ class Database:
                 discord.ChannelType.group]:
             active_server = None
         else:
-            active_server = int(ctx.message.server.id)
+            active_server = int(ctx.message.guild.id)
 
         # get/create the user
         return self.getUser(session, ctx.message.author.id, active_server,

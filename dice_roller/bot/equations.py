@@ -8,9 +8,9 @@ from ..util import variables
 from .. import db
 
 
-class Equations:
+class Equations(commands.Cog):
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._logger = logging.getLogger(__name__)
 
@@ -19,10 +19,10 @@ class Equations:
         if string:
             messages.append(str(string))
 
-    async def say_message(self, messages):
+    async def say_message(self, ctx: commands.Context, messages):
         message = '\n'.join(messages)
         if message:
-            await self.bot.say(message)
+            await ctx.send(message)
 
     def get_user(self, ctx: commands.Context, session, commit=True
                  ) -> db.schema.User:
@@ -82,7 +82,7 @@ class Equations:
 
             if len(your_eqs) + len(other_eqs) == 0:
                 self.say(message, 'There are no equations yet.')
-                await self.say_message(message)
+                await self.say_message(ctx, message)
                 return
 
             self.say(message, 'here is a list of all the equations:')
@@ -91,7 +91,7 @@ class Equations:
             self.say(message, '\nOther Equations:\n' + '-' * 10)
             self.say(message, '\n'.join([eq.printName() for eq in other_eqs]))
             self.say(message, '```')
-            await self.say_message(message)
+            await self.say_message(ctx, message)
 
     @equations.command(pass_context=True, usage='<eq name>')
     async def show(self, ctx: commands.Context, table_name: str):
@@ -115,7 +115,7 @@ class Equations:
                 self.say(message, equation.value)
                 self.say(message, "```")
 
-            await self.say_message(message)
+            await self.say_message(ctx, message)
 
     @equations.command(pass_context=True, usage='<eq name> <equation>')
     async def add(self, ctx: commands.Context, table_name: str, *,
@@ -152,7 +152,7 @@ class Equations:
             session.commit()
 
             self.say(message, "Created Equation " + new_eq.printName())
-            await self.say_message(message)
+            await self.say_message(ctx, message)
 
     @equations.command(pass_context=True, usage="<eq name> <description>")
     async def desc(self, ctx: commands.Context, table_name: str, *,
@@ -181,7 +181,7 @@ class Equations:
                 else:
                     self.say(message, "You don't have permission to do that")
 
-            await self.say_message(message)
+            await self.say_message(ctx, message)
 
     @equations.command(pass_context=True, usage="<eq name> <equation>")
     async def edit(self, ctx: commands.Context, eq_name: str, *, eq):
@@ -215,17 +215,23 @@ class Equations:
                         self.say(message, "Changed {} equation".format(
                             equation.printName()))
                     else:
-                        self.say(message,
-                                "There were errors while updating everyone's stats")
-                        self.say(message,
-                                "Make sure that stats are updated, or that this equation is backwards compatible.")
-                        self.say(message,
-                                "\nThe equation {} is still changed though."
-                                .format(equation.printName()))
+                        self.say(
+                            message,
+                            "There were errors while updating everyone's stats"
+                        )
+                        self.say(
+                            message,
+                            "Make sure that stats are updated, or that this equation is backwards compatible."
+                        )
+                        self.say(
+                            message,
+                            "\nThe equation {} is still changed though."
+                            .format(equation.printName())
+                        )
                 else:
                     self.say(message, "You don't have permission for that.")
 
-            await self.say_message(message)
+            await self.say_message(ctx, message)
 
     @equations.command(pass_context=True, usage="<eq name>", name='del')
     async def _del(self, ctx: commands.Context, eq_name: str):
@@ -253,7 +259,7 @@ class Equations:
                 else:
                     self.say(message, "Sorry, your not allowed to do that :/")
 
-            await self.say_message(message)
+            await self.say_message(ctx, message)
 
     @equations.command(pass_context=True, usage="<eq name> [<param 0>,]",
                        aliases=['roll'])
@@ -294,7 +300,7 @@ class Equations:
                 except util.BadEquation as be:
                     self.say(message, be)
 
-            await self.say_message(message)
+            await self.say_message(ctx, message)
 
         if util.dice.low:
             asyncio.ensure_future(util.dice.load_random_buffer())
